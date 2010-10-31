@@ -810,10 +810,36 @@ void xmunich::XgReadData(FILE *f) {
             S2 + 0.5*D1*sin(alpha2) - 0.5*D2*cos(alpha2), 
             ND1);
 
+}
+/*
+ *   class xsquare_circ:
+ */
 
+class xsquare_circ: public Xgen {
+  public:
+  xsquare_circ(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  virtual void XgReadData(FILE *f);
+};
 
+void xsquare_circ::XgReadData(FILE *f) {
+  int N;
+  if(!Get(f, &N)) XgError("Couldn't read N.");
+  XgAddEdge(1, -24, -24, N);
+  XgAddEdge(2, 24, -24, N);
+  XgAddEdge(3, 24, 24, N);
+  XgAddEdge(4, -24, 24, N);
+
+  double Rcirc; int Ncirc;
+  if(!Get(f, &Rcirc)) XgError("Couldn't read Rout.");
+  if(!Get(f, &Ncirc)) XgError("Couldn't read Nout.");
+
+  XgNewComponent();
+  for(int i=0; i<Ncirc; i++) {
+    XgAddEdge(5, Rcirc*cos(i*2*M_PI/Ncirc), -Rcirc*sin(i*2*M_PI/Ncirc));
+  }
 
 }
+
 
 /* PROGRAM BODY*/
 
@@ -872,6 +898,10 @@ main(int argc, char *argv[]) {
   }
   if(!strcmp(argv[1], "xmunich")) {
     xmunich X(argv[2]);
+    XgMainLoop(&X, argc, argv);
+  }
+  if(!strcmp(argv[1], "xsquare_circ")) {
+    xsquare_circ X(argv[2]);
     XgMainLoop(&X, argc, argv);
   }
   printf("Unknown application name.\n");
