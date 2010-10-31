@@ -25,7 +25,7 @@ After downloading XGEN, change to xgen2d/doc/ and type
 Prerequisites (Ubuntu Linux)
 ============================
 
-    sudo apt-get install libmotif-dev libmotif3 lesstif2 
+    sudo apt-get install libmotif-dev libmotif3 lesstif2 x11proto-print-dev 
 
 
 Compilation
