@@ -113,7 +113,8 @@ Alternativel;y, the user can choose a regular overlay pattern (Fig. \ref{fig:ove
   \label{fig:overlay}
   \end{figure}
 \noindent 
-  The user can add and remove points using the left and right mouse click,
+  The user can add and remove points using the left and middle  
+  (or the right button for the two-button mouse) mouse click,
   respectively. Mesh can be generated at any time by pressing the Mesh button.
   The Menu button launches a menu with several self-explanatory functions
   (Fig. \ref{fig:menu}). 
@@ -159,10 +160,11 @@ void xsquare::XgReadData(FILE *f) {
 }
   \end{verbatim}
 This tells XGEN to create a unit square domain with four edges. The first 
-  edge with boundary marker '3' starts at [0, 0] and it is subdivided 
-  equidistantly into 'N' intervals. An edge ends where the next one  
-  starts and the end of the last edge is the starting point of the first one.
-  Later we will learn how to create loops (holes) in the domain.\\
+  edge with boundary marker '3' starts at [0, 0] and ends at [1, 0] where 
+  the next one starts, is subdivided equidistantly into 'N' intervals. An 
+  edge ends where the next one starts and the end of the last edge is the 
+  starting point of the first one. Later we will learn how to create loops 
+  (holes) in the domain.\\
  
   \noindent
   Then add the following three lines into the main() function of the 
@@ -196,7 +198,7 @@ This tells XGEN to create a unit square domain with four edges. The first
 
   \noindent
   A graphical window should be launched. The user can add and remove points using 
-  the left and right mouse buttons, respectively. The roles of 
+  the left and middle mouse buttons, respectively. The roles of 
   the buttons are self-explanatory. 
 
   \section{Mesh Output Format} \label{out_form}
