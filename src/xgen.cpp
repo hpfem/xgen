@@ -3881,7 +3881,7 @@ void InitDialog() {
   strcpy((char*)msg, "Load");
   XmString load_str = 
    XmStringCreate(msg, XmFONTLIST_DEFAULT_TAG);
-  strcpy((char*)msg, "Set");
+  strcpy((char*)msg, "Overlay");
   XmString set_str = 
    XmStringCreate(msg, XmFONTLIST_DEFAULT_TAG);
 

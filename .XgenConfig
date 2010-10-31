@@ -1,0 +1,16 @@
+# Path to directory with point sets:
+points/
+# Path to directory with meshes:
+meshes/
+# SubLoopsNumber:
+100
+# Initial size limit:
+600
+# Boundary redraw interval:
+200
+# Time step change ratio:
+0.75
+# Zoom ratio:
+0.95
+
+
