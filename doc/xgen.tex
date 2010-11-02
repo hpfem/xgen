@@ -36,6 +36,38 @@ implemented in X-Windows using the Motif library.
   \end{center}
   \end{titlepage}
 
+  \section{Download, Installation, and Testing} \label{getting}
+  
+  A few external libraries are required to compile XGEN. In Ubuntu, install them using:
+
+{\footnotesize
+\begin{verbatim}
+  sudo apt-get install libmotif-dev libmotif3 lesstif2 x11proto-print-dev
+\end{verbatim}
+}
+\noindent
+  In the next step, clone the Git repository:
+{\footnotesize
+\begin{verbatim}
+  git clone http://github.com/hpfem/xgen.git
+\end{verbatim}
+}
+\noindent
+\normalsize
+  After that, change dir to xgen/ and build XGEN by typing ``make''. The present 
+  Makefile works for Ubuntu Linux, but it should work on other Linux and Unix 
+  platforms with no or minor modifications. Finally, check that XGEN works
+  properly by typing 
+ \noindent
+{\footnotesize
+\begin{verbatim}
+  ./xgen xgamm cfg/xgamm.cfg.
+\end{verbatim}
+} 
+\noindent
+After this, a graphical window with the geometry from the front page 
+should appear. Press the "Mesh" button to create a mesh.
+
   \section{Introduction}
 
   XGEN makes it possible to generate unstructured
@@ -43,6 +75,8 @@ implemented in X-Windows using the Motif library.
   a positively (= counter clock-wise) oriented boundary. Holes must 
   be oriented clock-wise. XGEN then calculates the area of the domain, and 
   throws inside an appropriate number of random points (Fig. \ref{fig:random}).
+
+\newpage
 
   \begin{figure}[!ht]
   \begin{center}
@@ -95,20 +129,8 @@ Alternativel;y, the user can choose a regular overlay pattern (Fig. \ref{fig:ove
 \noindent 
 
 
-  \section{Compiling XGEN} \label{getting}
-  
-  To compile XGEN, a few libraries are needed. In Ubuntu, install them using:
 
-{\footnotesize
-\begin{verbatim}
-  sudo apt-get install libmotif-dev libmotif3 lesstif2 x11proto-print-dev
-\end{verbatim}
-}
-\noindent
-  Then build XGEN by typing ``make''. The present Makefile works for
-  Ubuntu Linux, but it should work on other Linux and Unix platforms with 
-  no or minor modifications.
-  
+
   \section{Creating a New Project} \label{new-project}
 
   To create a new project, the user has to write 
