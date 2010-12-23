@@ -822,20 +822,30 @@ class xsquare_circ: public Xgen {
 };
 
 void xsquare_circ::XgReadData(FILE *f) {
-  int N;
-  if(!Get(f, &N)) XgError("Couldn't read N.");
-  XgAddEdge(1, -24, -24, N);
-  XgAddEdge(2, 24, -24, N);
-  XgAddEdge(3, 24, 24, N);
-  XgAddEdge(4, -24, 24, N);
-
-  double Rcirc; int Ncirc;
-  if(!Get(f, &Rcirc)) XgError("Couldn't read Rout.");
-  if(!Get(f, &Ncirc)) XgError("Couldn't read Nout.");
+  double A;  // horizontal length
+  double B;  // vertical length
+  double S1; // x-coordinate of circle midpoint
+  double S2; // y-coordinate of circle midpoint
+  double R;  // radius of circle
+  int N;     // division of circle
+  if(!Get(f, &A)) XgError("Couldn't read A (rectangle width).");
+  if(!Get(f, &B)) XgError("Couldn't read B (rectangle height).");
+  if(!Get(f, &S1)) XgError("Couldn't read S1 (circle center x-coordinate).");
+  if(!Get(f, &S2)) XgError("Couldn't read S2 (circle center y-coordinate).");
+  if(!Get(f, &R)) XgError("Couldn't read R (circle radous).");
+  if(!Get(f, &N)) XgError("Couldn't read N (circle subdivision).");
+  double h = 2*M_PI*R / N;
+  int NA = (int) (A / h + 0.5);
+  int NB = (int) (B / h + 0.5);
+  XgAddEdge(1, 0, 0, NA);
+  XgAddEdge(2, A, 0, NB);
+  XgAddEdge(3, A, B, NA);
+  XgAddEdge(4, 0, B, NB);
 
   XgNewComponent();
-  for(int i=0; i<Ncirc; i++) {
-    XgAddEdge(5, Rcirc*cos(i*2*M_PI/Ncirc), -Rcirc*sin(i*2*M_PI/Ncirc));
+  for(int i = 0; i < N; i++) {
+    XgAddEdge(5, S1 + R * cos(i*2*M_PI/N), 
+                 S2 - R * sin(i*2*M_PI/N));
   }
 
 }
