@@ -457,6 +457,7 @@ class xlist: public Xgen {
   virtual void XgReadData(FILE *f);
 };
 
+// new component is introduced with '='
 void xlist::XgReadData(FILE *f) {
   int index, lines, end = 0;
   Point A, B, C;
@@ -468,7 +469,7 @@ void xlist::XgReadData(FILE *f) {
     XgNewComponent();
     XgAddEdge(index, A, lines);
     C = A;
-    while(end = !Get(f, test), (end || test[0] == '#') ? 0:1) {
+    while(end = !Get(f, test), (end || test[0] == '=') ? 0:1) {
       index = atoi(test);
       if(!Get(f, &B)) XgError("Couldn't read a point.");
       if(!Get(f, &lines)) XgError("Couldn't read a lines number.");
