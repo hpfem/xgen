@@ -871,6 +871,7 @@ main(int argc, char *argv[]) {
   int nsteps = -1;
   if (argc > 3) {
     if (!strcmp(argv[3], "-nogui")) {
+      nogui = true;
       if (argc <= 4) {
         printf("The parameter \"-nogui\" must be followed by the number of relaxation steps.\n");
         exit(0);

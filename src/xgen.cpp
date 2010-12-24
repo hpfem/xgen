@@ -2,7 +2,7 @@
  **  2D interactive grid generator
  **            class  xgen 
  **             1.3.1998
- **           (Pavel Solin)
+ **          (Pavel Solin)
  **
  **        All rights reserved.
  **      Not for commercial use!
@@ -25,7 +25,7 @@ double XG_ZERO = 1e-12;
  *   Additional i/o functions:
  */
 
-int REMOVE_BDY_PTS_ACTIVE = 1;
+bool REMOVE_BDY_PTS_ACTIVE = true;
 
 int Get(FILE *f, Point *what) {
   char str[255];
@@ -612,7 +612,7 @@ Xgen::Xgen(bool nogui, int steps_to_take, bool overlay) {
   // Printing logo.  
   printf("\n");
   printf("-----------------------------------------\n");
-  printf("  XGEN, a 2D interactive mesh generator  \n");
+  printf("  Xgen, a 2D interactive mesh generator  \n");
   printf("            Linux version 6.0            \n");
   printf("        Last modified Dec 5, 2003        \n");
   printf("    Revised and updated November 2010    \n");
@@ -677,68 +677,68 @@ void Xgen::XgInitPointList() {
   GoThroughPointsPtr = 0;
 }
 
-int Xgen::XgGiveNextPoint(Point *p) {
+bool Xgen::XgGiveNextPoint(Point *p) {
   if(GoThroughPointsPtr < Npoin) {
     *p = E[GoThroughPointsPtr++];
-    return 1;
+    return true;
   }
-  else return 0;
+  else return false;
 } 
 
 void Xgen::XgInitFreePointList() {
   RedrawFreePtr = Nbound;
 }
 
-int Xgen::XgGiveNextFreePoint(Point *p) {
+bool Xgen::XgGiveNextFreePoint(Point *p) {
   if(RedrawFreePtr < Npoin) {
     *p = E[RedrawFreePtr++];
-    return 1;
+    return true;
   }
-  else return 0;
+  else return false;
 }
 
 void Xgen::XgInitBoundaryLineList() {
   L->Init_ptr();
 }
 
-int Xgen::XgGiveNextBoundaryLine(Point *p, Point *q) {
+bool Xgen::XgGiveNextBoundaryLine(Point *p, Point *q) {
   int A, B;
   if(L->Get_ptr(&A, &B)) {
     *p = E[A];
     *q = E[B];
-    return 1;
+    return true;
   }
-  else return 0;
+  else return false;
 }
 
 void Xgen::XgInitBoundaryInfoList() {
   BIL->Init_ptr();
 }
 
-int Xgen::XgGiveNextBoundaryInfo(BoundaryInfo *info) {
-  if(BIL->Get_ptr(info)) return 1;
-  else return 0;
+bool Xgen::XgGiveNextBoundaryInfo(BoundaryInfo *info) {
+  if(BIL->Get_ptr(info)) return true;
+  else return false;
 }
 
 void Xgen::XgInitElementList() {
   ElemL->Init_ptr();
 }
 
-int Xgen::XgGiveNextElement(Point *p, Point *q, Point *r) {
+bool Xgen::XgGiveNextElement(Point *p, Point *q, Point *r) {
   int A, B, C;
   if(ElemL->Get(&A, &B, &C)) {
     *p = E[A];
     *q = E[B];
     *r = E[C];
-    return 1;
+    return true;
   }
-  else return 0;
+  else return false;
 }
 
-int Xgen::XgGiveNextElement(Element *element) {
+bool Xgen::XgGiveNextElement(Element *element) {
   if(ElemL->Get(&(element->n1), 
-   &(element->n2), &(element->n3))) return 1;
-  else return 0;
+   &(element->n2), &(element->n3))) return true;
+  else return false;
 }
 
 void Xgen::XgForgetGrid() {
@@ -746,7 +746,7 @@ void Xgen::XgForgetGrid() {
   L->Delete_list_of_lines();
   L = Info.Create_list_of_lines();
   Nelem = 0;
-  REMOVE_BDY_PTS_ACTIVE = 1;
+  REMOVE_BDY_PTS_ACTIVE = true;
 }
 
 //points are randomly set
@@ -769,7 +769,7 @@ void Xgen::XgSetPointsRandom() {
 	rand()*(Ymax - Ymin)/Rand_max + Ymin;
     } while(!Is_inside(E + i));
   }
-  printf("Domain filled with random points, Npoin = %d, Nfree = %d.\n", Npoin, Nfree);
+  printf("Domain filled with random points, %d grid points, %d interior.\n", Npoin, Nfree);
 }
 
 int odd(int i) {
@@ -812,7 +812,7 @@ void Xgen::XgSetPointsOverlay() {
   RedrawFreePtr = Nbound;
   GoThroughPointsPtr = Nbound;
 
-  printf("Domain filled with overlay points, Npoin = %d, Nfree = %d.\n", Npoin, Nfree);
+  printf("Domain filled with overlay points, %d grid points, %d interior.\n", Npoin, Nfree);
 }
 
 void Xgen::XgOutput(FILE *f) {
@@ -848,29 +848,30 @@ void Xgen::XgOutputPoints(FILE *f) {
 
   Point P;
   GoThroughPointsPtr = Nbound;
-  while(XgGiveNextPoint(&P)) fprintf(f, "%g %g\n", P.x, P.y);
+  while(XgGiveNextPoint(&P) == true) fprintf(f, "%g %g\n", P.x, P.y);
 } 
 
 void Undraw_point1(Point);
 
-int Xgen::XgNextTriangle(Point *p, Point *q, Point *r, int *ready) {
+bool Xgen::XgNextTriangle(Point &p, Point &q, Point &r, bool &finished) {
 
-  *ready = 0;
+  finished = false;
   int A, B, C;
 
-  //removing points lying near the boundary
-  if(REMOVE_BDY_PTS_ACTIVE) {
-    double coeff = 4.0;  ///THIS COEFFICIENT HAS TO BE SET HERE!
+  // Go through all boundary edges and remove points which 
+  // are too close to the boundary.
+  if(REMOVE_BDY_PTS_ACTIVE == true) {
+    double coeff = 3.0;
 
     int was_deleted = 0;
     Point a, b;
     XgInitBoundaryLineList();                                           
-    while(XgGiveNextBoundaryLine(&a, &b)) {
+    while(XgGiveNextBoundaryLine(&a, &b) == true) {
       double h = sqrt((a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y));
       double dh = h/coeff;
       XgInitFreePointList();
       Point c;
-      while(XgGiveNextFreePoint(&c)) {
+      while(XgGiveNextFreePoint(&c) == true) {
         Point ab, ab2, ab3;
         ab.x = 0.5*(a.x + b.x);
         ab.y = 0.5*(a.y + b.y);
@@ -891,23 +892,23 @@ int Xgen::XgNextTriangle(Point *p, Point *q, Point *r, int *ready) {
 
         if(dist_a_c < dh || dist_b_c < dh || dist_ab_c < dh ||
            dist_ab2_c < dh || dist_ab3_c < dh) {
-          printf("Point [%g, %g] closer than h/%g to the boundary -> deleting.\n",
-            c.x, c.y, coeff);
+          printf("Point [%g, %g] closer than h/%g to the boundary -> deleting.\n", c.x, c.y, coeff);
           was_deleted++;
-          if(!XgRemoveFreePoint(c)) 
-            XgError("internal while removing boundary close points.");
+          bool success = XgRemoveFreePoint(c);
+          if(!success) 
+            XgError("internal while removing points that lie too close to boundary.");
           //break;
         }
       }                
     }                 
-    REMOVE_BDY_PTS_ACTIVE = 0;
-    if(was_deleted > 0) printf("Deleted %d points, Npoin = %d, Nfree = %d.\n",
+    REMOVE_BDY_PTS_ACTIVE = false;
+    if(was_deleted > 0) printf("Deleted %d points, %d grid points, %d interior.\n",
       was_deleted, Npoin, Nfree);
   }
 
   L->Get_last(&A, &B);
 
-  if(!Find_nearest_left(A, B, &C)) return 0;
+  if(!Find_nearest_left(A, B, &C)) return false;
 
   if (L->Delete(C, A)) {
     if (L->Delete(B, C)) L->Delete_last();
@@ -918,18 +919,18 @@ int Xgen::XgNextTriangle(Point *p, Point *q, Point *r, int *ready) {
     if (!L->Delete(B, C)) L->Add(C, B);
   }
 
-  if(L->Is_empty()) *ready = 1; 
+  if(L->Is_empty()) finished = true; 
 
-  // they are well oriented!
+  // Elements are positively oriented.
   ElemL -> Add(A, B, C);
 
   Nelem++;
 
-  *p = E[A];
-  *q = E[B];
-  *r = E[C];
+  p = E[A];
+  q = E[B];
+  r = E[C];
   
-  return 1;
+  return true;
 }
 
 void Xgen::XgNextShift(Point *p_old, Point *p_new) {
@@ -947,21 +948,21 @@ void Xgen::XgNextShift(Point *p_old, Point *p_new) {
   }
 }
 
-int Xgen::XgMouseAdd(Point p) {
-  if(Nstore == 0) return 0;
-  if(!Is_inside(&p)) return 0;
+bool Xgen::XgMouseAdd(Point p) {
+  if(Nstore == 0) return false;
+  if(!Is_inside(&p)) return false;
   E[Npoin] = p;
   Nfree++;
   Npoin++;
   Nstore--;
   IterationPtr=Nbound;
-  printf("Point at [%g, %g] added to the end of the list, new Npoin = %d, Nfree = %d.\n", 
+  printf("Point at [%g, %g] added to the end of the list, %d grid points, %d interior.\n", 
     p.x, p.y, Npoin, Nfree);
-  return 1;
+  return true;
 }
 
-int Xgen::XgMouseRemove(Point p_from, Point *p_where) {
-  if(Nfree == 0) return 0;
+bool Xgen::XgMouseRemove(Point p_from, Point *p_where) {
+  if(Nfree == 0) return false;
   int wanted = Nbound;  //case it is the last free one
   double min = 1e100;
   for(int j=Nbound; j < Npoin; j++) {
@@ -977,17 +978,17 @@ int Xgen::XgMouseRemove(Point p_from, Point *p_where) {
   Nfree--;
   Nstore++;
   IterationPtr = Nbound;
-  printf("Point no. %d at [%g, %g] removed by mouse, Npoin = %d, Nfree = %d.\n", 
+  printf("Point no. %d at [%g, %g] removed by mouse, %d grid points, %d interior.\n", 
     wanted, E[wanted].x, E[wanted].y, Npoin, Nfree);
-  return 1;
+  return true;
 }
 
-int Xgen::XgRemoveFreePoint(Point p) {
-  if(Nfree <= 0) return 0;
-  int wanted = -1;  //number of the point to be found
+bool Xgen::XgRemoveFreePoint(Point p) {
+  if(Nfree <= 0) return false;
+  int wanted = -1;  // Index of the wanted point.
   double min = 1e100;
-  //going through free points
-  for(int j=Nbound; j < Npoin; j++) {
+  // Looping through free points.
+  for(int j = Nbound; j < Npoin; j++) {
     double dist = sqrt((E[j].x - p.x)*(E[j].x - p.x) + 
                        (E[j].y - p.y)*(E[j].y - p.y));
     if(dist < min) {
@@ -1002,13 +1003,13 @@ int Xgen::XgRemoveFreePoint(Point p) {
   Nstore++;
   RedrawFreePtr--;
 
-  Undraw_point1(p);
+  if (this->nogui == false) Undraw_point1(p);
   IterationPtr = Nbound;
 
-  return 1;
+  return true;
 }
 
-int Xgen::XgIsEmpty() {
+bool Xgen::XgIsEmpty() {
   return (Npoin == Nbound);
 }
 
@@ -1100,14 +1101,13 @@ void Xgen::XgInit(char *cfg_filename) {
   XgReadData(f);
   fclose(f); 
 
-  //controlling the user:
+  //sanity checks
   if(Nbound == 0) {
     XgError(
      "class Xgen",
      "Bad configuration file: Nbound = 0." 
     );
   }
-
   if(DeltaT <= 0) {
     XgError(
      "class Xgen",
@@ -1115,13 +1115,13 @@ void Xgen::XgInit(char *cfg_filename) {
     );
   }
  
-  //storing DeltaT case user would want to refresh it:
+  //storing DeltaT in case user would want to refresh it:
   First_DeltaT = DeltaT;
 
-  //storing Nstore case user would want to refresh it:
+  //storing Nstore in case user would want to refresh it:
   First_Nstore = Nstore;
 
-  //computing H:
+  //average edge length
   H = Info.GiveBoundaryLength()/Nbound;
 
   //creating initial point list:
@@ -1155,7 +1155,7 @@ void Xgen::XgInit(char *cfg_filename) {
   }                          
   L->Init_ptr();                                           
 
-  //controlling the user:
+  //sanity checks
   if(Area <= 0) {
     XgError(
      "class Xgen",
@@ -1163,7 +1163,7 @@ void Xgen::XgInit(char *cfg_filename) {
     );
   }
 
-  //getting optimal number of electrons that will be added:
+  //getting optimal number of free points
   int help;
   help = (int)
   ((Area/(H*H*sqrt(3)/4) - 0.9*Nbound)/2 + 0.5);
@@ -1171,14 +1171,14 @@ void Xgen::XgInit(char *cfg_filename) {
   else Nfree = help;
   Npoin = Nfree + Nbound;
 
-  //initializing iterations loop:
+  //initializing iteration loop:
   IterationPtr = Nbound;
 
-  //storing Npoin case user would want to refresh it:
+  //storing Npoin incase user would want to refresh it:
   First_Npoin = Npoin;
 
-  //copying user-added boundary electrons to the
-  //beginning of electron list:
+  //copying boundary points to the
+  //beginning of the point list:
   E = (Point*)malloc((Npoin + Nstore)*sizeof(Point)); 
   if(E == NULL) {                                          
     XgError(
@@ -1195,7 +1195,40 @@ void Xgen::XgInit(char *cfg_filename) {
   if(this->overlay) XgSetPointsOverlay();
   else XgSetPointsRandom();
 
-  //at this moment the class is ready.
+  // In interactive mode we just return control, in batch mode
+  // we loop over the points "steps_to_make" times,
+  // generate mesh, save it to a file, and quit. 
+  if (this->nogui == true) {
+    // Run smoothing iterations.
+    for (int s = 0; s < this->steps_to_take; s++) {
+      this->XgInitFreePointList();
+      for(int i=0; i<this->Nfree; i++) {
+        Point P1, P2;
+        this->XgNextShift(&P1, &P2);
+      }
+      printf("Smoothing iteration %d finished.\n", s+1);
+    }
+
+    // Create mesh.
+    printf("Starting the meshing algorithm.\n");
+    REMOVE_BDY_PTS_ACTIVE = true;
+    bool success = this->CreateMeshBatchMode();
+    if (!success) XgError("Mesh algorithm failed.");
+
+    // Save the mesh to a file.
+    FILE *f = fopen("out.mesh", "w");
+    if (f == NULL) XgError("Failed to open mesh file for writing.");
+    BIL = Info.CreateBoundaryInfo();
+    XgUserOutput(f);
+    BIL -> Remove();
+    fclose(f);
+
+    // Exit the program.
+    printf("Mesh saved to \"out.mesh\".\n");
+    exit(0);
+  }
+
+  return;
 }
 
 void Xgen::XgSetTimestep(double init_timestep) {
@@ -1260,7 +1293,7 @@ void Xgen::XgUserOutput(FILE *f) {
   Point P;
   XgInitPointList();
   int counter = 0;
-  while(XgGiveNextPoint(&P)) {
+  while(XgGiveNextPoint(&P) == true) {
     counter++;
     if (counter < XgGiveNpoin()) fprintf(f, "  { %g, %g },\n", P.x, P.y);
     else fprintf(f, "  { %g, %g }\n", P.x, P.y);
@@ -1275,7 +1308,7 @@ void Xgen::XgUserOutput(FILE *f) {
   Element E;
   XgInitElementList();
   counter = 0;
-  while(XgGiveNextElement(&E)) {
+  while(XgGiveNextElement(&E) == true) {
     counter++;
     if (counter < XgGiveNelem()) fprintf(f, "  { %d, %d , %d, 0 },\n", E.n1, E.n2, E.n3);
     else fprintf(f, "  { %d, %d , %d, 0 }\n", E.n1, E.n2, E.n3);
@@ -1290,7 +1323,7 @@ void Xgen::XgUserOutput(FILE *f) {
   BoundaryInfo I;
   XgInitBoundaryInfoList();
   counter = 0;
-  while(XgGiveNextBoundaryInfo(&I)) {
+  while(XgGiveNextBoundaryInfo(&I) == true) {
     counter++;
     if (counter < XgGiveNbound()) fprintf(f, "  { %d, %d , %d},\n", I.A, I.B, I.EdgeIndex);
     else fprintf(f, "  { %d, %d , %d}\n", I.A, I.B, I.EdgeIndex);
@@ -1307,12 +1340,12 @@ void Xgen::XgUserOutput(FILE *f) {
   BoundaryInfo Bin;
   XgInitBoundaryInfoList();
   int edge_count = 0;
-  while(XgGiveNextBoundaryInfo(&Bin)) {
+  while(XgGiveNextBoundaryInfo(&Bin) == true) {
     edge_count++;
     Element Elem;
     XgInitElementList();
     int elem_count = 0;
-    while(XgGiveNextElement(&Elem)) {
+    while(XgGiveNextElement(&Elem) == true) {
       elem_count++;
       int vrt_A = Bin.A;
       int vrt_B = Bin.B;
@@ -1691,19 +1724,19 @@ void Show_normal_situation() {
   Point a, b;             
            
   RS.RPtr->XgInitBoundaryLineList();                                           
-  while(RS.RPtr->XgGiveNextBoundaryLine(&a, &b)) {
+  while(RS.RPtr->XgGiveNextBoundaryLine(&a, &b) == true) {
     Draw_point2(a);
     Draw_line(a, b);                       
   }                 
   RS.RPtr->XgInitFreePointList();
-  while(RS.RPtr->XgGiveNextFreePoint(&a)) Draw_point1(a);
+  while(RS.RPtr->XgGiveNextFreePoint(&a) == true) Draw_point1(a);
 }
 
 void Redraw_boundary() {
   Point a, b;             
            
   RS.RPtr->XgInitBoundaryLineList();                                           
-  while(RS.RPtr->XgGiveNextBoundaryLine(&a, &b)) {
+  while(RS.RPtr->XgGiveNextBoundaryLine(&a, &b) == true) {
     Draw_point2(a);
     Draw_line(a, b);                       
   }                 
@@ -1712,7 +1745,7 @@ void Redraw_boundary() {
 void Redraw_grid() {                                           
   Point a, b, c;                                               
   RS.RPtr->XgInitElementList();   
-  while(RS.RPtr->XgGiveNextElement(&a, &b, &c)) {
+  while(RS.RPtr->XgGiveNextElement(&a, &b, &c) == true) {
     Draw_line(a, b);
     Draw_line(a, c);
     Draw_line(b, c);   
@@ -1740,22 +1773,22 @@ void Get_optimal_size(int *width, int *height) {
 void DeactivateWindow() {
   XtVaSetValues(
    RS.initforget,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   XtVaSetValues(
    RS.gridsave,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );     
   XtVaSetValues(
    RS.quit,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );     
   XtVaSetValues(
    RS.blackboard,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
 }
@@ -1763,22 +1796,22 @@ void DeactivateWindow() {
 void ActivateWindow() {
   XtVaSetValues(
    RS.initforget,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );     
   XtVaSetValues(
    RS.gridsave,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );     
   XtVaSetValues(
    RS.quit,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );     
   XtVaSetValues(
    RS.blackboard,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );     
 }
@@ -1822,7 +1855,7 @@ void SavePointsDialogCANCEL(
   XtUnmanageChild(RS.savepointsdialog);
   XtVaSetValues(
    RS.savepoints,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );  
 }
@@ -1834,22 +1867,22 @@ void InitLoadDialogCANCEL(
   XtUnmanageChild(RS.initd_load_d);
   XtVaSetValues(
    RS.initd_load,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   XtVaSetValues(
    RS.initd_cancel,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   XtVaSetValues(
    RS.initd_set,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   XtVaSetValues(
    RS.initd_label,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
 }
@@ -1867,7 +1900,7 @@ void SavePointsErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -1876,7 +1909,7 @@ void SavePointsErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -1885,7 +1918,7 @@ void SavePointsErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -1894,7 +1927,7 @@ void SavePointsErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -1903,7 +1936,7 @@ void SavePointsErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -1912,7 +1945,7 @@ void SavePointsErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -1921,7 +1954,7 @@ void SavePointsErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -1930,7 +1963,7 @@ void SavePointsErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -1939,7 +1972,7 @@ void SavePointsErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -1948,7 +1981,7 @@ void SavePointsErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -1957,7 +1990,7 @@ void SavePointsErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -1966,7 +1999,7 @@ void SavePointsErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -1975,7 +2008,7 @@ void SavePointsErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
 //  child = XmFileSelectionBoxGetChild(
@@ -1984,14 +2017,14 @@ void SavePointsErrorDialogOK(
 //  );
 //  XtVaSetValues(
 //   child,
-//   XmNsensitive, True,
+//   XmNsensitive, true,
 //   NULL
 //  );
 */
 
   XtVaSetValues(
    RS.savepointsdialog,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
 }
@@ -2010,7 +2043,7 @@ void InitDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2019,7 +2052,7 @@ void InitDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2028,7 +2061,7 @@ void InitDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2037,7 +2070,7 @@ void InitDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2046,7 +2079,7 @@ void InitDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2055,7 +2088,7 @@ void InitDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2064,7 +2097,7 @@ void InitDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2073,7 +2106,7 @@ void InitDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2082,7 +2115,7 @@ void InitDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2091,7 +2124,7 @@ void InitDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2100,7 +2133,7 @@ void InitDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2109,7 +2142,7 @@ void InitDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2118,7 +2151,7 @@ void InitDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
 //  child = XmFileSelectionBoxGetChild(
@@ -2127,14 +2160,14 @@ void InitDiskErrorDialogOK(
 //  );
 //  XtVaSetValues(
 //   child,
-//   XmNsensitive, True,
+//   XmNsensitive, true,
 //   NULL
 //  );
 */
 
   XtVaSetValues(
    RS.initd_load_d,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
 }
@@ -2153,7 +2186,7 @@ void SaveDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2162,7 +2195,7 @@ void SaveDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2171,7 +2204,7 @@ void SaveDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2180,7 +2213,7 @@ void SaveDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2189,7 +2222,7 @@ void SaveDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2198,7 +2231,7 @@ void SaveDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2207,7 +2240,7 @@ void SaveDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2216,7 +2249,7 @@ void SaveDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2225,7 +2258,7 @@ void SaveDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2234,7 +2267,7 @@ void SaveDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2243,7 +2276,7 @@ void SaveDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2252,7 +2285,7 @@ void SaveDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2261,7 +2294,7 @@ void SaveDiskErrorDialogOK(
   );
   XtVaSetValues(
    child,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
 //  child = XmFileSelectionBoxGetChild(
@@ -2270,14 +2303,14 @@ void SaveDiskErrorDialogOK(
 //  );
 //  XtVaSetValues(
 //   child,
-//   XmNsensitive, True,
+//   XmNsensitive, true,
 //   NULL
 //  );
 */
 
   XtVaSetValues(
    RS.savedialog,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
 }
@@ -2333,7 +2366,7 @@ void SavePointsErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2342,7 +2375,7 @@ void SavePointsErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2351,7 +2384,7 @@ void SavePointsErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2360,7 +2393,7 @@ void SavePointsErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2369,7 +2402,7 @@ void SavePointsErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2378,7 +2411,7 @@ void SavePointsErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2387,7 +2420,7 @@ void SavePointsErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2396,7 +2429,7 @@ void SavePointsErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2405,7 +2438,7 @@ void SavePointsErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2414,7 +2447,7 @@ void SavePointsErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2423,7 +2456,7 @@ void SavePointsErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2432,7 +2465,7 @@ void SavePointsErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2441,7 +2474,7 @@ void SavePointsErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
 //  child = XmFileSelectionBoxGetChild(
@@ -2450,14 +2483,14 @@ void SavePointsErrorDialog(char *event, char *where) {
 //  );
 //  XtVaSetValues(
 //   child,
-//   XmNsensitive, False,
+//   XmNsensitive, false,
 //   NULL
 //  );
 */
 
   XtVaSetValues(
    RS.savepointsdialog,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
 
@@ -2556,7 +2589,7 @@ void InitDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2565,7 +2598,7 @@ void InitDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2574,7 +2607,7 @@ void InitDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2583,7 +2616,7 @@ void InitDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2592,7 +2625,7 @@ void InitDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2601,7 +2634,7 @@ void InitDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2610,7 +2643,7 @@ void InitDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2619,7 +2652,7 @@ void InitDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2628,7 +2661,7 @@ void InitDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2637,7 +2670,7 @@ void InitDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2646,7 +2679,7 @@ void InitDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2655,7 +2688,7 @@ void InitDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2664,7 +2697,7 @@ void InitDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
 //  child = XmFileSelectionBoxGetChild(
@@ -2673,14 +2706,14 @@ void InitDiskErrorDialog(char *event, char *where) {
 //  );
 //  XtVaSetValues(
 //   child,
-//   XmNsensitive, False,
+//   XmNsensitive, false,
 //   NULL
 //  );
 */
 
   XtVaSetValues(
    RS.initd_load_d,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
 
@@ -2887,7 +2920,7 @@ void SaveDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2896,7 +2929,7 @@ void SaveDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2905,7 +2938,7 @@ void SaveDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2914,7 +2947,7 @@ void SaveDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2923,7 +2956,7 @@ void SaveDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2932,7 +2965,7 @@ void SaveDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2941,7 +2974,7 @@ void SaveDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2950,7 +2983,7 @@ void SaveDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2959,7 +2992,7 @@ void SaveDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2968,7 +3001,7 @@ void SaveDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2977,7 +3010,7 @@ void SaveDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2986,7 +3019,7 @@ void SaveDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   child = XmFileSelectionBoxGetChild(
@@ -2995,7 +3028,7 @@ void SaveDiskErrorDialog(char *event, char *where) {
   );
   XtVaSetValues(
    child,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
 //  child = XmFileSelectionBoxGetChild(
@@ -3004,14 +3037,14 @@ void SaveDiskErrorDialog(char *event, char *where) {
 //  );
 //  XtVaSetValues(
 //   child,
-//   XmNsensitive, False,
+//   XmNsensitive, false,
 //   NULL
 //  );
 */
 
   XtVaSetValues(
    RS.savedialog,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
 
@@ -3124,7 +3157,7 @@ void SavePointsDialogOK(Widget w, XtPointer client_data, XtPointer call_data) {
     XtUnmanageChild(RS.savepointsdialog);
     XtVaSetValues(
      RS.savepoints,
-     XmNsensitive, True,
+     XmNsensitive, true,
      NULL
     );   
   }
@@ -3393,7 +3426,7 @@ void SavePoints(
 
   XtVaSetValues(
    RS.savepoints,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
 
@@ -3529,22 +3562,22 @@ void InitDialogLOAD(
 
   XtVaSetValues(
    RS.initd_load,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   XtVaSetValues(
    RS.initd_set,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   XtVaSetValues(
    RS.initd_cancel,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   XtVaSetValues(
    RS.initd_label,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
 }
@@ -3972,7 +4005,7 @@ void AboutOK(
 
   XtVaSetValues(
    RS.about,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
 }
@@ -3985,7 +4018,7 @@ void About(
 
   XtVaSetValues(
    RS.about,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
 
@@ -4267,7 +4300,7 @@ void ZoomInc(
     RS.IsZoominc = 0;
     XtVaSetValues(
      RS.zoominc,
-     XmNsensitive, False,
+     XmNsensitive, false,
      NULL
     );
   }
@@ -4326,7 +4359,7 @@ void ZoomDec(
     RS.IsZoominc = 1;
     XtVaSetValues(
      RS.zoominc,
-     XmNsensitive, True,
+     XmNsensitive, true,
      NULL
     );
   }
@@ -4431,13 +4464,13 @@ void InitForget(
     );     
     XtVaSetValues(
      RS.gridsave,
-     XmNsensitive, True,
+     XmNsensitive, true,
      XmNlabelString, RS.grid_name,
      NULL
     );     
     XtVaSetValues(
      RS.blackboard,
-     XmNsensitive, True,
+     XmNsensitive, true,
      NULL
     );
     XClearWindow(
@@ -4472,12 +4505,12 @@ void GridSave(
     );          
     XtVaSetValues(
      RS.gridsave,
-     XmNsensitive, False,
+     XmNsensitive, false,
      NULL
     );          
     XtVaSetValues(
      RS.blackboard,
-     XmNsensitive, False,
+     XmNsensitive, false,
      NULL
     );          
   }
@@ -4643,11 +4676,11 @@ static void BlackboardExpose(
 
 /*ARGSUSED*/
 Boolean Continue(XtPointer client_data) {
-  if(RS.Grid_ready || RS.Grid_failed) return False;
+  if(RS.Grid_ready || RS.Grid_failed) return false;
   if(RS.Grid_working) {
     Point a, b, c;
-    int Ready;
-    if(RS.RPtr->XgNextTriangle(&a, &b, &c, &Ready)) {
+    bool finished;
+    if(RS.RPtr->XgNextTriangle(a, b, c, finished)) {
       if(!RS.IsInfo) {
         char elem_info[50], number[10];
         strcpy(elem_info, RS.info_nelem_str);
@@ -4661,10 +4694,10 @@ Boolean Continue(XtPointer client_data) {
          NULL
         );
       }
-      if(Ready == 1) {
+      if(finished == true) {
         RS.Grid_working = 0;
         RS.Grid_ready = 1;
-        REMOVE_BDY_PTS_ACTIVE = 1;
+        REMOVE_BDY_PTS_ACTIVE = true;
         if(!RS.IsInfo) {
           XtVaSetValues(
            RS.info_l1,
@@ -4674,7 +4707,7 @@ Boolean Continue(XtPointer client_data) {
         }
         XtVaSetValues(
          RS.gridsave,
-         XmNsensitive, True,
+         XmNsensitive, true,
          XmNlabelString, RS.save_name,
          NULL
         );
@@ -4713,7 +4746,21 @@ Boolean Continue(XtPointer client_data) {
       Bound_count = 0;
     }      
   }
-  return(False); 
+  return(false); 
+}
+
+bool Xgen::CreateMeshBatchMode() {
+ 
+  Point a, b, c;
+  bool finished, success;
+  //this->XgInitBoundaryLineList();
+  do {
+    success = this->XgNextTriangle(a, b, c, finished);
+    if (!success) return false;
+  }
+  while (finished == false);
+
+  return true;
 }
 
 void MenuCancel(
@@ -4722,7 +4769,7 @@ void MenuCancel(
   XtUnmanageChild(RS.menu);
   XtVaSetValues(
    RS.menu_button,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
 }
@@ -4739,7 +4786,7 @@ void InfoDialogOK(
   XtUnmanageChild(RS.infodialog);
   XtVaSetValues(
    RS.info,
-   XmNsensitive, True,
+   XmNsensitive, true,
    NULL
   );
   RS.IsInfo = 1;
@@ -4750,7 +4797,7 @@ void Info(
 ) {
   XtVaSetValues(
    RS.info,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
   RS.IsInfo = 0;
@@ -4764,7 +4811,7 @@ void Info(
   XtSetArg(args[i], XmNminHeight, 230); i++;
   XtSetArg(args[i], XmNwidth, 300); i++;
   XtSetArg(args[i], XmNheight, 230); i++;
-  XtSetArg(args[i], XmNresizable, False); i++;
+  XtSetArg(args[i], XmNresizable, false); i++;
 
   char msg[255];
   strcpy((char*)msg, "Infodialog");
@@ -4954,7 +5001,7 @@ void Menu(
   XtSetArg(args[i], XmNminHeight, 190); i++;
   XtSetArg(args[i], XmNwidth, 140); i++;
   XtSetArg(args[i], XmNheight, 270); i++;
-  XtSetArg(args[i], XmNautoUnmanage, False); i++;
+  XtSetArg(args[i], XmNautoUnmanage, false); i++;
   XtSetArg(args[i], XmNfractionBase, 1000); i++;
 
   char msg[255];
@@ -4976,7 +5023,7 @@ void Menu(
    XmNbottomPosition, 111,
    XmNleftAttachment, XmATTACH_FORM,
    XmNrightAttachment, XmATTACH_FORM,
-   XmNsensitive, RS.IsAbout ? True : False,
+   XmNsensitive, RS.IsAbout ? true : false,
    NULL
   );  
 
@@ -5061,7 +5108,7 @@ void Menu(
    XmNbottomPosition, 777,
    XmNleftAttachment, XmATTACH_FORM,
    XmNrightAttachment, XmATTACH_FORM,
-   XmNsensitive, RS.IsInfo ? True : False,
+   XmNsensitive, RS.IsInfo ? true : false,
    NULL
   ); 
 
@@ -5126,7 +5173,7 @@ void Menu(
 
   XtVaSetValues(
    RS.menu_button,
-   XmNsensitive, False,
+   XmNsensitive, false,
    NULL
   );
 }
@@ -5135,7 +5182,7 @@ void Menu(
  *    Graphic setup:     
  */
 
-static void SetUpThings() {
+static void SetUpGraphics() {
   XGCValues values;
 
   RS.black_color =
@@ -5240,7 +5287,7 @@ void RSGetConfiguration(Xgen *User) {
   strcpy((char*)msg, "Mesh is ready.");
   RS.info_l1_label3 = XmStringCreate(
     msg, XmFONTLIST_DEFAULT_TAG); 
-  strcpy((char*)msg, "The algorithm failed.");
+  strcpy((char*)msg, "The meshing algorithm failed.");
   RS.info_l1_label4 = XmStringCreate(
     msg, XmFONTLIST_DEFAULT_TAG);
   strcpy(RS.info_npoin_str, "Number of points: ");
@@ -5517,7 +5564,7 @@ void XgMainLoop(Xgen *User, int argc, char *argv[]) {
   XtRealizeWidget(RS.topLevel); 
 
   //graphics setup:
-  SetUpThings();
+  SetUpGraphics();
 
   //running the XGen-Window:
   XtAppMainLoop(app_context);
