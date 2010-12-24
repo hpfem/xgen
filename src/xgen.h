@@ -229,6 +229,7 @@ void XgMessage(char *what);
 
 class Xgen {
   public:
+  Xgen(bool nogui, int steps_to_take, bool overlay);
   char* XgGiveName();
   double XgGiveTimestep();
   int XgGiveDimension();
@@ -249,8 +250,8 @@ class Xgen {
   int XgGiveNextElement(Point *p, Point *q, Point *r);
   int XgGiveNextElement(Element *element);
   void XgForgetGrid();
-  void XgStartAgain();
-  void XgStartAgain2();
+  void XgSetPointsRandom();
+  void XgSetPointsOverlay();
   void XgInputPoints(FILE *f, int *error, int *mem);
   void XgOutputPoints(FILE *f);
   void XgOutput(FILE *f);
@@ -278,6 +279,10 @@ class Xgen {
   virtual void XgUserOutput(FILE *f);
   virtual double XgCriterion(Point a, Point b, Point c);
   virtual void XgReadData(FILE *f) = 0;
+  bool nogui;  // if trye, operates in batch mode.
+  int steps_to_take; // used with -nogui only: number of relaxation steps to be done.
+  bool overlay; // if true, initial equidistant overlay point 
+                // distribution will be used, otherwise random 
 
   private:
   double H, DeltaT, TimestepConst; int Nstore;

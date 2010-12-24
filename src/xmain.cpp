@@ -20,7 +20,7 @@
 
 class xsquare: public Xgen {
   public:
-  xsquare(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xsquare(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -39,7 +39,7 @@ void xsquare::XgReadData(FILE *f) {
 
 class xhole: public Xgen {
   public:
-  xhole(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xhole(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -69,7 +69,7 @@ void xhole::XgReadData(FILE *f) {
 
 class xcirc: public Xgen {
   public:
-  xcirc(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xcirc(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -100,7 +100,7 @@ void xcirc::XgReadData(FILE *f) {
 
 class xgamm: public Xgen {
   public:
-  xgamm(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xgamm(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -135,7 +135,7 @@ void xgamm::XgReadData(FILE *f) {
 
 class xnozzle0: public Xgen {
   public:
-  xnozzle0(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xnozzle0(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -191,7 +191,7 @@ void xnozzle0::XgReadData(FILE *f) {
 
 class xduese: public Xgen {
   public:
-  xduese(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xduese(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -289,7 +289,7 @@ void xduese::XgReadData(FILE *f) {
 
 class xduese2: public Xgen {
   public:
-  xduese2(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xduese2(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -425,7 +425,7 @@ void xduese2::XgReadData(FILE *f) {
 
 class xstep: public Xgen {
   public:
-  xstep(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xstep(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -453,7 +453,7 @@ void xstep::XgReadData(FILE *f) {
 
 class xlist: public Xgen {
   public:
-  xlist(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xlist(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -500,7 +500,7 @@ double Radius(double x) {
 
 class xnozzle: public Xgen {
   public:
-  xnozzle(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xnozzle(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -536,7 +536,7 @@ void xnozzle::XgReadData(FILE *f) {
 
 class xspir2d: public Xgen {
   public:
-  xspir2d(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xspir2d(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -582,7 +582,7 @@ double sep_up(double x) {
 
 class xsep2d: public Xgen {
   public:
-  xsep2d(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xsep2d(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -631,7 +631,7 @@ void xsep2d::XgReadData(FILE *f) {
 
 class xmunich: public Xgen {
   public:
-  xmunich(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xmunich(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -818,7 +818,7 @@ void xmunich::XgReadData(FILE *f) {
 
 class xsquare_circ: public Xgen {
   public:
-  xsquare_circ(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xsquare_circ(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -855,64 +855,106 @@ void xsquare_circ::XgReadData(FILE *f) {
 /* PROGRAM BODY*/
 
 main(int argc, char *argv[]) {
-  if(argc < 2) {
-    printf("Missing application name.\n");
+
+  // Reading command-line parameters.
+  if(argc < 3) {
+    printf("Overview of command-line parameters:\n");
+    printf("1. application (project) name such as \"xgamm\" - mandatory.\n");
+    printf("2. text configuration file such as \"cfg/xgamm.cfg\" - mandatory.\n");
+    printf("3. \"-nogui N\", where N is the number of relaxation steps - optional.\n");
+    printf("4. \"-overlay\" regular overlay pattern of points will be used, as opposed\n");
+    printf("   to the default random distribution - optional.\n");
     exit(0);
   }
+  bool nogui = false;
+  bool overlay = false;
+  int nsteps = -1;
+  if (argc > 3) {
+    if (!strcmp(argv[3], "-nogui")) {
+      if (argc <= 4) {
+        printf("The parameter \"-nogui\" must be followed by the number of relaxation steps.\n");
+        exit(0);
+      }     
+      nsteps = atoi(argv[4]);
+      if (nsteps < 0) {
+        printf("Number of relaxation steps must be nonnegative.\n");
+        exit(0);
+      }
+      if (argc > 5) {
+        if (!strcmp(argv[5], "-overlay")) {
+          overlay = true;
+        }
+        else {
+          printf("Invalid command-line parameter. Did you mean \"-overlay\"?\n");
+          exit(0);
+        }
+      }
+    }
+    else {
+      if (!strcmp(argv[3], "-overlay")) {
+        overlay = true;
+      }
+      else {
+        printf("Invalid command-line parameter. Did you mean \"-nogui\"?\n");
+        exit(0);
+      }
+    }
+  }
+
   if(!strcmp(argv[1], "xsquare")) {
-    xsquare X(argv[2]);
+    xsquare X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xhole")) {
-    xhole X(argv[2]);
+    xhole X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xcirc")) {
-    xcirc X(argv[2]);
+    xcirc X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xgamm")) {
-    xgamm X(argv[2]);
+    xgamm X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xstep")) {
-    xstep X(argv[2]);
+    xstep X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xlist")) {
-    xlist X(argv[2]);
+    xlist X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xduese")) {
-    xduese X(argv[2]);
+    xduese X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xduese2")) {
-    xduese2 X(argv[2]);
+    xduese2 X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xnozzle0")) {
-    xnozzle0 X(argv[2]);
+    xnozzle0 X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xnozzle")) {
-    xnozzle X(argv[2]);
+    xnozzle X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xspir2d")) {
-    xspir2d X(argv[2]);
+    xspir2d X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xsep2d")) {
-    xsep2d X(argv[2]);
+    xsep2d X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xmunich")) {
-    xmunich X(argv[2]);
+    xmunich X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xsquare_circ")) {
-    xsquare_circ X(argv[2]);
+    xsquare_circ X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   printf("Unknown application name.\n");

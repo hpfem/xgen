@@ -608,6 +608,32 @@ Information::~Information() {
  **   class Xgen: public methods
  **/
 
+Xgen::Xgen(bool nogui, int steps_to_take, bool overlay) {
+  // Printing logo.  
+  printf("\n");
+  printf("-----------------------------------------\n");
+  printf("  XGEN, a 2D interactive mesh generator  \n");
+  printf("            Linux version 6.0            \n");
+  printf("        Last modified Dec 5, 2003        \n");
+  printf("    Revised and updated November 2010    \n");
+  printf("   Copyright (C) 1995-2011 Pavel Solin   \n");
+  printf("          e-mail: solin@unr.edu          \n");
+  printf("    Distributed under the BSD license    \n");
+  printf("-----------------------------------------\n");
+
+  this->nogui = nogui;
+  this->steps_to_take = steps_to_take;
+  this->overlay = overlay;
+  if (nogui) { 
+    printf("Xgen will operate in batch mode.\n");
+    printf("%d relaxation steps will be performed.\n", steps_to_take);
+  }
+  else printf("Xgen will operate in interactive mode.\n");
+  if (overlay) printf("Xgen will use an equidistant overlay pattern for initial point positions.\n");
+  else printf("Random initial point distribution will be used.\n");
+
+}
+
 char* Xgen::XgGiveName() {
   char *c = (char*)malloc(255);
   if(c == NULL) XgError("No free memory to allocate.");
@@ -724,10 +750,10 @@ void Xgen::XgForgetGrid() {
 }
 
 //points are randomly set
-void Xgen::XgStartAgain() {
+void Xgen::XgSetPointsRandom() {
   Npoin = First_Npoin;
   Nstore = First_Nstore;
-  if(Nbound > Npoin) XgError("Internal (1) in XgStartAgain().");
+  if(Nbound > Npoin) XgError("Internal (1) in XgSetPointsRandom().");
   Nfree = Npoin - Nbound;
 #ifdef RAND_MAX
   double Rand_max = RAND_MAX;
@@ -752,26 +778,8 @@ int odd(int i) {
 }
 
 //points are equidistantly placed
-void Xgen::XgStartAgain2() {
-  //Npoin = First_Npoin;
-  //Nstore = First_Nstore;
-  //Nfree = Npoin - Nbound;
-  //#ifdef RAND_MAX
-  //  double Rand_max = RAND_MAX;
-  //#else
-  //  double Rand_max = pow(2.0, 15.0);
-  //#endif
-  //srand(1);
-  //for(int i=Nbound; i<Npoin; i++) {
-  //  do {
-  //    E[i].x =
-  //      rand()*(Xmax - Xmin)/Rand_max + Xmin;
-  //    E[i].y =
-  //      rand()*(Ymax - Ymin)/Rand_max + Ymin;
-  //  } while(!Is_inside(E + i));
-  //}
-
-  //I can place Nfree + Nstore new points!
+void Xgen::XgSetPointsOverlay() {
+  // Place Nfree + Nstore new points!
   int Nx = (int)((Xmax-Xmin)/H);
   int Ny = (int)((Ymax-Ymin)/(H*sqrt(3)/2.0));
   Npoin = Nbound;
@@ -797,7 +805,7 @@ void Xgen::XgStartAgain2() {
     }
   }      
 
-  if(Nbound > Npoin) XgError("Internal (1) in XgStartAgain2().");
+  if(Nbound > Npoin) XgError("Internal (1) in XgSetPointsOverlay().");
   Nfree = Npoin - Nbound;
   Nstore = First_Nstore + First_Npoin - Npoin;
   IterationPtr = Nbound;
@@ -843,7 +851,7 @@ void Xgen::XgOutputPoints(FILE *f) {
   while(XgGiveNextPoint(&P)) fprintf(f, "%g %g\n", P.x, P.y);
 } 
 
-void Undraw_point1(Point );
+void Undraw_point1(Point);
 
 int Xgen::XgNextTriangle(Point *p, Point *q, Point *r, int *ready) {
 
@@ -1039,17 +1047,6 @@ Element Xgen::XgGiveElement(long pos_in_list) {
 void Xgen::XgInit(char *cfg_filename) {
   if(cfg_filename == NULL) XgError("Empty filename detected in XgInit().\nVerify number of command line parameters.");
 
-  printf("\n");
-  printf("-----------------------------------------\n");
-  printf("  XGEN, a 2D interactive mesh generator  \n");
-  printf("            Linux version 6.0            \n");
-  printf("        Last modified Dec 5, 2003        \n");
-  printf("    Revised and updated November 2010    \n");
-  printf("   Copyright (C) 1995-2010 Pavel Solin   \n");
-  printf("          e-mail: solin@unr.edu          \n");
-  printf("    Distributed under the BSD license    \n");
-  printf("-----------------------------------------\n");
-
   //initializing variables:
   Nfree = Npoin = First_Npoin = Nelem = Nbound = 0;
   Xmax = Xmin = Ymax = Ymin = 0;
@@ -1064,7 +1061,7 @@ void Xgen::XgInit(char *cfg_filename) {
   GoThroughPointsPtr = 0;
   TimestepConst = 0.8;
 
-  //sorry, but:
+  //spatial dimension
   Dimension = 2;
 
   //getting the application name from the cfg filename
@@ -1084,7 +1081,7 @@ void Xgen::XgInit(char *cfg_filename) {
     }
   }
 
-  //case user wouldn't redefine:
+  //if user wouldn't redefine:
   First_Nstore = Nstore = 10000;
   First_DeltaT = DeltaT = 1;
   H = 1;
@@ -1193,10 +1190,12 @@ void Xgen::XgInit(char *cfg_filename) {
     for(int i = 0; i<Nbound; i++) E[i] = EL->Delete();       
   }
 
-  //free electrons are stochastic set:
-  XgStartAgain();
+  // Setting initial points either randomly or 
+  // using an equidistributed regular pattern.
+  if(this->overlay) XgSetPointsOverlay();
+  else XgSetPointsRandom();
 
-  //at this moment class ready.
+  //at this moment the class is ready.
 }
 
 void Xgen::XgSetTimestep(double init_timestep) {
@@ -1860,7 +1859,7 @@ void SavePointsErrorDialogOK(
 ) {
   XtUnmanageChild((Widget)client_data);
 
-/* DO NOT CLEAR THIS
+/* DO NOT REMOVE THIS
   Widget child;
   child = XmFileSelectionBoxGetChild(
    RS.savepointsdialog, 
@@ -2003,7 +2002,7 @@ void InitDiskErrorDialogOK(
   //w, client_data, call_data,
   XtUnmanageChild((Widget)client_data);
 
-/* DO NOT CLEAR THIS
+/* DO NOT REMOVE THIS
   Widget child;
   child = XmFileSelectionBoxGetChild(
    RS.initd_load_d, 
@@ -2146,7 +2145,7 @@ void SaveDiskErrorDialogOK(
   //w, client_data, call_data,
   XtUnmanageChild((Widget)client_data);
 
-/* DO NOT CLEAR THIS
+/* DO NOT REMOVE THIS
   Widget child;
   child = XmFileSelectionBoxGetChild(
    RS.savedialog, 
@@ -2549,7 +2548,7 @@ void SavePointsErrorDialog(char *event, char *where) {
 void InitDiskErrorDialog(char *event, char *where) {
   Widget dialog, label1, label2, ok;
 
-/* DO NOT CLEAR THIS
+/* DO NOT REMOVE THIS
   Widget child;
   child = XmFileSelectionBoxGetChild(
    RS.initd_load_d, 
@@ -2879,7 +2878,8 @@ void TrianglesErrorDialog() {
 }
 
 void SaveDiskErrorDialog(char *event, char *where) {
-/*
+
+/* DO NOT REMOVE THIS
   Widget child;
   child = XmFileSelectionBoxGetChild(
    RS.savedialog, 
@@ -3674,7 +3674,7 @@ void InitDialogSET(
  Widget w, XtPointer client_data, XtPointer call_data
 ) {  
   ActivateWindow();
-  RS.RPtr->XgStartAgain2();
+  RS.RPtr->XgSetPointsOverlay();
   int npoin = RS.RPtr->XgGiveNpoin();
   char points_info[255];
   strcpy(points_info, RS.info_npoin_str);
