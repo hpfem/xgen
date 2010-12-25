@@ -3,9 +3,7 @@
  **            class  xgen 
  **             1.3.1998
  **          (Pavel Solin)
- **
- **        All rights reserved.
- **      Not for commercial use!
+ **       All rights reserved.
  **/
 
 # include <stdio.h>
@@ -54,7 +52,9 @@ int Get(FILE *f, BoundaryInfo *what) {
   if(!Get(f, str)) return 0;
   what->B = (int)atoi(str);
   if(!Get(f, str)) return 0;
-  what->EdgeIndex = (int)atol(str);
+  what->BoundaryMarker = (int)atol(str);
+  if(!Get(f, str)) return 0;
+  what->Alpha = (int)atof(str);
   return 1;
 }
 
@@ -67,7 +67,7 @@ void Put(FILE *f, Element what) {
 }
 
 void Put(FILE *f, BoundaryInfo what) {
-  fprintf(f, "%d %d %d\n", what.A + 1, what.B + 1, what.EdgeIndex);
+  fprintf(f, "%d %d %d\n", what.A + 1, what.B + 1, what.BoundaryMarker);
 }
 
 void Put(Point what) {
@@ -79,7 +79,7 @@ void Put(Element what) {
 }
 
 void Put(BoundaryInfo what) {
-  fprintf(stderr, "%d %d %d\n", what.A + 1, what.B + 1, what.EdgeIndex);
+  fprintf(stderr, "%d %d %d\n", what.A + 1, what.B + 1, what.BoundaryMarker);
 }
 
 /*
@@ -134,7 +134,7 @@ int LineList::Get_ptr(
   if(Ptr != NULL) {
     *a = Ptr->A;
     *b = Ptr->B;
-    Ptr = Ptr->Next;
+    Ptr = Ptr->next;
     return 1;
   }
   else return 0;
@@ -145,7 +145,7 @@ void LineList::Delete_list_of_lines() {
   Box *p;
   while(Ptr != NULL) {
     p = Ptr;
-    Ptr = Ptr -> Next;
+    Ptr = Ptr -> next;
     delete p;
   }
   First = Last = NULL;
@@ -155,7 +155,7 @@ int LineList::Is_there(int C) {
   Box *P = First;
   while(P != NULL) {
     if((P->A == C) || (P->B == C)) return 1;
-    P = P->Next;
+    P = P->next;
   }
   return 0;
 }
@@ -167,28 +167,28 @@ void LineList::Add(
     First = Last = new Box(a, b);
   }
   else {
-    Last->Next = new Box(a, b);
-    Last = Last->Next;
+    Last->next = new Box(a, b);
+    Last = Last->next;
   }
 }
 
 void LineList::Delete_last() {
   Box *p = First;
-  if (p->Next == NULL) {
+  if (p->next == NULL) {
     delete p;
     First = Last = NULL;
   }
   else {
-    if (p->Next->Next == NULL) {
+    if (p->next->next == NULL) {
       delete Last;
       Last = First;
     }
     else {
-      while (p->Next->Next != NULL) p = p->Next;
+      while (p->next->next != NULL) p = p->next;
       Last = p;
-      delete p->Next;
+      delete p->next;
     }
-    Last->Next = NULL;
+    Last->next = NULL;
   }
 }
 
@@ -199,14 +199,14 @@ int LineList::Delete(
   while (p != NULL) {
     if ((p->A == a && p->B == b) || (p->A == b && p->B == a)) {
       if (l == NULL) {
-        First = p->Next;
-	if (p->Next == NULL) Last = NULL;
+        First = p->next;
+	if (p->next == NULL) Last = NULL;
       }
       else {
-	l->Next = p->Next;
-	if (p->Next == NULL) {
+	l->next = p->next;
+	if (p->next == NULL) {
 	  Last = l;
-	  Last->Next = NULL;
+	  Last->next = NULL;
         }
       }
       delete p;
@@ -214,7 +214,7 @@ int LineList::Delete(
     }
     else {
       l = p;
-      p = p->Next;
+      p = p->next;
     }
   }
   return 0;
@@ -227,7 +227,7 @@ int LineList::Delete(
 int BoundaryInfoList::Get_ptr(BoundaryInfo *I) {
   if(Ptr != NULL) {
     *I = *Ptr;
-    Ptr = Ptr->Next;
+    Ptr = Ptr->next;
     return 1;
   }
   else return 0;
@@ -240,35 +240,35 @@ void BoundaryInfoList::Add(int a,
     First = Last = new BoundaryInfo(a, b, CompInd, EdInd);
   }
   else {
-    Last->Next = new BoundaryInfo(a, b, CompInd, EdInd);
-    Last = Last->Next;
+    Last->next = new BoundaryInfo(a, b, CompInd, EdInd);
+    Last = Last->next;
   }
 }
 
 void BoundaryInfoList::Delete_last() {
   BoundaryInfo *p = First;
-  if (p->Next == NULL) {
+  if (p->next == NULL) {
     delete p;
     First = Last = NULL;
   }
   else {
-    if (p->Next->Next == NULL) {
+    if (p->next->next == NULL) {
       delete Last;
       Last = First;
     }
     else {
-      while (p->Next->Next != NULL) p = p->Next;
+      while (p->next->next != NULL) p = p->next;
       Last = p;
-      delete p->Next;
+      delete p->next;
     }
-    Last->Next = NULL;
+    Last->next = NULL;
   }
 }
 
 void BoundaryInfoList::Remove() {
   BoundaryInfo *p = Ptr = First;
   while(p != NULL) {
-    Ptr = Ptr->Next;
+    Ptr = Ptr->next;
     delete p;
     p = Ptr;
   }
@@ -286,8 +286,8 @@ void ElemList::Add(int a,
     First = Last = Ptr = new ElemBox(a, b, c);
   }
   else {
-    Last->Next = new ElemBox(a, b, c);
-    Last = Last->Next;
+    Last->next = new ElemBox(a, b, c);
+    Last = Last->next;
     if(Last == NULL) {
       XgError(
        "ElemList",
@@ -304,7 +304,7 @@ int ElemList::Get(int *a,
     *a = Ptr->E.n1;
     *b = Ptr->E.n2;
     *c = Ptr->E.n3;
-    Ptr = Ptr->Next;
+    Ptr = Ptr->next;
     return 1;
   }
   else return 0;
@@ -315,7 +315,7 @@ void ElemList::Remove() {
   Ptr = First;
   while(Ptr != NULL) { 
     p = Ptr;
-    Ptr = Ptr->Next;
+    Ptr = Ptr->next;
     delete p;
   }
   First = Last = NULL; 
@@ -331,7 +331,7 @@ int PointList::Get(int i,
   PointBox *P = First;
   for(int j=0; j<i; j++) {
     if(P == NULL) return 0;
-    P = P->Next;
+    P = P->next;
   }
   *pos_x = P->P.x;
   *pos_y = P->P.y;
@@ -342,7 +342,7 @@ int PointList::Get_ptr(Point *T) {
   if(Ptr != NULL) {
     T->x = Ptr->P.x;
     T->y = Ptr->P.y;
-    Ptr = Ptr->Next; 
+    Ptr = Ptr->next; 
     return 1;
   }
   else return 0;
@@ -360,8 +360,8 @@ void PointList::Add(double pos_x, double pos_y) {
     First = Last = new PointBox(pos_x, pos_y);
   }
   else {
-    Last->Next = new PointBox(pos_x, pos_y);
-    Last = Last->Next;
+    Last->next = new PointBox(pos_x, pos_y);
+    Last = Last->next;
   }
 }
 
@@ -372,7 +372,7 @@ Point PointList::Delete() {
   else {
     PointBox *p = First;
     P = p->P;
-    First = First->Next;
+    First = First->next;
     delete p;
     return P;
   }
@@ -396,8 +396,8 @@ void Information::New_component() {
   else {
     Component *help = Last_component;
     Last_component = new Component();
-    help -> Next = Last_component;
-    if(help -> Next == NULL) {
+    help -> next = Last_component;
+    if(help -> next == NULL) {
       XgError(
        "struct Information",
        "Not enough memory for new component." 
@@ -406,9 +406,8 @@ void Information::New_component() {
   }
 }
 
-void Information::Add_edge(
-  int Kind, double x, double y, int Number_of_lines
-) {
+void Information::Add_edge(int marker, double x, double y, int subdiv, double alpha) 
+{
   if(Last_component == NULL) {
     First_component = Last_component = new Component();
     if(First_component == NULL) {
@@ -420,37 +419,32 @@ void Information::Add_edge(
   }
   if(Last_component -> Last_edge == NULL) {
     Last_component -> Last_edge = 
-    Last_component -> First_edge = 
-    new Edge(Kind, x, y, Number_of_lines);
+    Last_component -> First_edge = new Edge(marker, x, y, subdiv, alpha);
     if(Last_component -> Last_edge == NULL) {
       XgError(
        "struct Information",
        "Not enough memory for new edge." 
       );
     } 
-//    Put("Info: adding edge "); Put(Kind); Put(" ");
-//    PutNl(Number_of_lines);
   } 
   else {
     Edge *help = Last_component -> Last_edge;
     Last_component -> Last_edge = 
-    new Edge(Kind, x, y, Number_of_lines);
-    help -> Next = Last_component -> Last_edge;
-    if(help -> Next == NULL) {
+    new Edge(marker, x, y, subdiv, alpha);
+    help -> next = Last_component -> Last_edge;
+    if(help -> next == NULL) {
       XgError(
        "struct Information",
        "Not enough memory for new edge." 
       );
     }
-//    Put("Info: adding edge "); Put(Kind); Put(" ");
-//    PutNl(Number_of_lines);
   }
 }
 
 LineList *Information::Create_list_of_lines() {
   LineList *l = new LineList;
   int Count = 0, First_point_of_component = 0;
-  int Number_of_lines = 0;
+  int subdiv = 0;
 
 //  PutNl("\nCreating LineList:");
   Component *Component_pointer = First_component;
@@ -458,23 +452,19 @@ LineList *Information::Create_list_of_lines() {
     Edge *Edge_pointer = Component_pointer -> First_edge;  
     First_point_of_component = Count;
     while(Edge_pointer != NULL) {
-      Number_of_lines = Edge_pointer -> Number_of_lines;
-//      Put("Number_of_lines: "); 
-//      PutNl(Number_of_lines);
-      for(int i=0; i<Number_of_lines; i++) {
-//        Put("LineList: adding "); Put(Count); Put(" "); 
-//        PutNl(Count+1);
+      subdiv = Edge_pointer -> subdiv;
+      for(int i=0; i<subdiv; i++) {
         l->Add(Count, Count + 1);
         Count++;
       }
-      Edge_pointer = Edge_pointer -> Next;
+      Edge_pointer = Edge_pointer -> next;
     }
     l->Delete_last();
 //    PutNl("LineList: deleting last item.");
     l->Add(Count-1, First_point_of_component);
 //    Put("LineList: adding "); Put(Count-1); Put(" ");
 //    PutNl(First_point_of_component);
-    Component_pointer = Component_pointer -> Next;
+    Component_pointer = Component_pointer -> next;
   }
   return l;
 }       
@@ -484,31 +474,28 @@ PointList *Information::Create_list_of_points() {
   Point 
    First_point_of_component(0, 0),
    First_point(0, 0), 
-   Next_point(0, 0), 
+   next_point(0, 0), 
    P(0, 0);
-  int Number_of_lines;
+  int subdiv;
 
-//  Put("\nCreating PointList:\n");
   Component *Component_pointer = First_component;
   while(Component_pointer != NULL) {
     Edge *Edge_pointer = Component_pointer -> First_edge;  
     First_point_of_component = First_point = Edge_pointer->P;
-    while(Edge_pointer->Next != NULL) {
-      Number_of_lines = Edge_pointer -> Number_of_lines;
-//      Put("Number_of_lines: "); PutNl(Number_of_lines);
-      Edge_pointer = Edge_pointer->Next;
-      Next_point = Edge_pointer->P;
-      P = (Next_point - First_point)/Number_of_lines;
-      for(int i=0; i<Number_of_lines; i++) {
+    while(Edge_pointer->next != NULL) {
+      subdiv = Edge_pointer -> subdiv;
+      Edge_pointer = Edge_pointer->next;
+      next_point = Edge_pointer->P;
+      P = (next_point - First_point)/subdiv;
+      for(int i=0; i<subdiv; i++) {
         l->Add(First_point + P*i);
       }
-      First_point = Next_point;
+      First_point = next_point;
     }
-    Number_of_lines = Edge_pointer -> Number_of_lines;
-//    Put("Number_of_lines: "); PutNl(Number_of_lines);
-    P = (First_point_of_component - First_point)/Number_of_lines;
-    for(int i=0; i<Number_of_lines; i++) l->Add(First_point + P*i);
-    Component_pointer = Component_pointer -> Next;
+    subdiv = Edge_pointer -> subdiv;
+    P = (First_point_of_component - First_point)/subdiv;
+    for(int i=0; i<subdiv; i++) l->Add(First_point + P*i);
+    Component_pointer = Component_pointer -> next;
   }
   return l;
 }       
@@ -518,21 +505,21 @@ double Information::GiveBoundaryLength() {
   Point 
    First_point_of_component(0, 0),
    First_point(0, 0), 
-   Next_point(0, 0);
+   next_point(0, 0);
 
 //  Put("\nComputing boundary length:\n");
   Component *Component_pointer = First_component;
   while(Component_pointer != NULL) {
     Edge *Edge_pointer = Component_pointer -> First_edge;  
     First_point_of_component = First_point = Edge_pointer->P;
-    while(Edge_pointer->Next != NULL) {
-      Edge_pointer = Edge_pointer->Next;
-      Next_point = Edge_pointer->P;
-      length += (Next_point - First_point).abs();
-      First_point = Next_point;
+    while(Edge_pointer->next != NULL) {
+      Edge_pointer = Edge_pointer->next;
+      next_point = Edge_pointer->P;
+      length += (next_point - First_point).abs();
+      First_point = next_point;
     }
     length += (First_point_of_component - First_point).abs();
-    Component_pointer = Component_pointer -> Next;
+    Component_pointer = Component_pointer -> next;
   }
   return length;
 }       
@@ -541,48 +528,34 @@ BoundaryInfoList *Information::CreateBoundaryInfo() {
   BoundaryInfoList *l = new BoundaryInfoList;
   int Count = 0,
    First_point_of_component = 0;
-  int Number_of_lines = 0, ComponentIndex = 0;
-  int 
-   Last_kind = 0;
+  int subdiv = 0, ComponentIndex = 0;
+  int Last_marker = 0;
 
-//  Put("\nCreating BoundaryInfoList:\n");
+  //  Put("\nCreating BoundaryInfoList:\n");
   Component *Component_pointer = First_component;
   while(Component_pointer != NULL) {
     Edge *Edge_pointer = Component_pointer -> First_edge;
     First_point_of_component = Count;
     while(Edge_pointer != NULL) {
-      Number_of_lines = Edge_pointer -> Number_of_lines;
-      for(int i=0; i<Number_of_lines; i++) {
+      subdiv = Edge_pointer -> subdiv;
+      for(int i=0; i<subdiv; i++) {
         l->Add(
             Count, Count + 1, 
             ComponentIndex,
-            Edge_pointer -> Kind
+            Edge_pointer -> marker
            );
-//        Put("BoundaryInfoList: adding "); 
-//        Put(Count); Put(" "); 
-//        Put(Count+1); Put(" ");
-//        Put(ComponentIndex); Put(" ");
-//        Put(Edge_pointer -> Kind);
-//        Put("\n");
         Count++;
       }
-      Last_kind = Edge_pointer -> Kind;
-      Edge_pointer = Edge_pointer -> Next;
+      Last_marker = Edge_pointer -> marker;
+      Edge_pointer = Edge_pointer -> next;
     }
     l->Delete_last();
-//    Put("deleting last item, ");    
     l->Add(
         Count - 1, First_point_of_component,
         ComponentIndex,
-        Last_kind
+        Last_marker
        );
-//    Put("BoundaryInfoList: adding "); 
-//    Put(Count-1); Put(" ");
-//    Put(First_point_of_component); Put(" ");
-//    Put(ComponentIndex); Put(" ");
-//    Put(Last_kind);
-//    Put("\n");
-    Component_pointer = Component_pointer -> Next;;
+    Component_pointer = Component_pointer -> next;
     ComponentIndex++;
   }
   return l;
@@ -594,11 +567,11 @@ Information::~Information() {
     Edge *edge_ptr = comp_ptr -> First_edge;
     while(edge_ptr != NULL) {
       Edge *help_edge = edge_ptr;
-      edge_ptr = edge_ptr -> Next;
+      edge_ptr = edge_ptr -> next;
       delete help_edge;
     }
     Component *help_comp = comp_ptr;
-    comp_ptr = comp_ptr -> Next;
+    comp_ptr = comp_ptr -> next;
     delete help_comp;
   }
   First_component = Last_component = NULL;
@@ -1037,7 +1010,7 @@ Element Xgen::XgGiveElement(long pos_in_list) {
   if(pos_in_list < 0 || pos_in_list >= Nelem)
     XgError("Invalid element index used.");
   ElemBox *ptr = ElemL->First;
-  for(long i=0; i<pos_in_list; i++) ptr = ptr->Next;
+  for(long i=0; i<pos_in_list; i++) ptr = ptr->next;
   return ptr->E;
 }
 
@@ -1239,23 +1212,27 @@ void Xgen::XgNewComponent() {
   Info.New_component();
 }
 
-void Xgen::XgAddEdge(int index, double x, double y, int lines) {
-  Info.Add_edge(index, x, y, lines);
-  Nbound += lines;
+void Xgen::XgAddEdge(int marker, double x, double y, int subdiv, double alpha) {
+  Info.Add_edge(marker, x, y, subdiv, alpha);
+  Nbound += subdiv;
 }
 
-void Xgen::XgAddEdge(int index, double x, double y) {
-  Info.Add_edge(index, x, y, 1);
+void Xgen::XgAddEdge(int marker, double x, double y, double alpha) {
+  int subdiv = 1;
+  Info.Add_edge(marker, x, y, subdiv, alpha);
   Nbound++;
 }
 
-void Xgen::XgAddEdge(int index, Point P, int lines) {
-  Info.Add_edge(index, P.x, P.y, lines);
-  Nbound += lines;
+void Xgen::XgAddEdge(int marker, double x, double y, int subdiv) {
+  double alpha = 0;
+  Info.Add_edge(marker, x, y, subdiv, alpha);
+  Nbound++;
 }
 
-void Xgen::XgAddEdge(int index, Point P) {
-  Info.Add_edge(index, P.x, P.y, 1);
+void Xgen::XgAddEdge(int marker, double x, double y) {
+  int subdiv = 1;
+  double alpha = 0;
+  Info.Add_edge(marker, x, y, subdiv, alpha);
   Nbound++;
 }
 
@@ -1325,8 +1302,8 @@ void Xgen::XgUserOutput(FILE *f) {
   counter = 0;
   while(XgGiveNextBoundaryInfo(&I) == true) {
     counter++;
-    if (counter < XgGiveNbound()) fprintf(f, "  { %d, %d , %d},\n", I.A, I.B, I.EdgeIndex);
-    else fprintf(f, "  { %d, %d , %d}\n", I.A, I.B, I.EdgeIndex);
+    if (counter < XgGiveNbound()) fprintf(f, "  { %d, %d , %d},\n", I.A, I.B, I.BoundaryMarker);
+    else fprintf(f, "  { %d, %d , %d}\n", I.A, I.B, I.BoundaryMarker);
   }
   fprintf(f, "}\n");
 
@@ -1340,7 +1317,7 @@ void Xgen::XgUserOutput(FILE *f) {
   BoundaryInfo Bin;
   XgInitBoundaryInfoList();
   int edge_count = 0;
-  while(XgGiveNextBoundaryInfo(&Bin) == true) {
+  while(XgGivenextBoundaryInfo(&Bin) == true) {
     edge_count++;
     Element Elem;
     XgInitElementList();

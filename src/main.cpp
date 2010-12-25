@@ -453,28 +453,32 @@ void xstep::XgReadData(FILE *f) {
 
 class xlist: public Xgen {
   public:
-  xlist(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
+  xlist(char *cfg_filename, bool nogui, int nsteps, bool overlay) 
+        : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
 // new component is introduced with '='
 void xlist::XgReadData(FILE *f) {
-  int index, lines, end = 0;
-  Point A, B, C;
+  int marker, subdiv, end = 0;
+  Point a, b, c;
+  double alpha;
   char test[20];
 
-  while(Get(f, &index)) {
-    if(!Get(f, &A)) XgError("Couldn't read a point.");
-    if(!Get(f, &lines)) XgError("Couldn't read a lines number.");
+  while(Get(f, &marker)) {
+    if(!Get(f, &a)) XgError("Couldn't read a point.");
+    if(!Get(f, &subdiv)) XgError("Couldn't read a subdivision number.");
+    if(!Get(f, &alpha)) XgError("Couldn't read a boundary segment's angle.");
     XgNewComponent();
-    XgAddEdge(index, A, lines);
-    C = A;
+    XgAddEdge(marker, a.x, a.y, subdiv, alpha);
+    c = a;
     while(end = !Get(f, test), (end || test[0] == '=') ? 0:1) {
-      index = atoi(test);
-      if(!Get(f, &B)) XgError("Couldn't read a point.");
-      if(!Get(f, &lines)) XgError("Couldn't read a lines number.");
-      XgAddEdge(index, B, lines); 
-      A=B;
+      marker = atoi(test);
+      if(!Get(f, &b)) XgError("Couldn't read a point.");
+      if(!Get(f, &subdiv)) XgError("Couldn't read a subdivision number.");
+      if(!Get(f, &alpha)) XgError("Couldn't read a boundary segment's angle.");
+      XgAddEdge(marker, b.x, b.y, subdiv, alpha); 
+      a=b;
     } 
   }
 }

@@ -8,8 +8,8 @@ init: xgen
 clean:
 	/bin/rm -f obj/*.o *~ */*~
 
-xgen: obj/disc.o obj/xgen.o obj/xmain.o
-	$(CC) -o xgen obj/xmain.o obj/disc.o obj/xgen.o $(LDFLAGS)
+xgen: obj/disc.o obj/xgen.o obj/main.o
+	$(CC) -o xgen obj/main.o obj/disc.o obj/xgen.o $(LDFLAGS)
 
 obj/disc.o: src/disc.cpp src/disc.h
 	$(CC) -o obj/disc.o -c src/disc.cpp $(CFLAGS)
@@ -17,7 +17,7 @@ obj/disc.o: src/disc.cpp src/disc.h
 obj/xgen.o: src/xgen.cpp src/xgen.h
 	$(CC) -o obj/xgen.o -c src/xgen.cpp $(CFLAGS)
 
-obj/xmain.o: src/xmain.cpp src/disc.cpp src/xgen.cpp
-	$(CC) -o obj/xmain.o -c src/xmain.cpp $(CFLAGS)
+obj/main.o: src/main.cpp src/disc.cpp src/xgen.cpp
+	$(CC) -o obj/main.o -c src/main.cpp $(CFLAGS)
 
 

@@ -37,22 +37,23 @@ struct Element {
 };
 
 struct BoundaryInfo {
-  int A, B;
-  int ComponentIndex;
-  int EdgeIndex;
-  BoundaryInfo *Next;
+  int A, B;            // Vertex indices.
+  double Alpha;        // 0 for straight edges, nonzero for circular arcs.
+  int ComponentIndex;  // Index of boundary component (closed loop).
+  int BoundaryMarker;  // Boundary marker.
+  BoundaryInfo *next;
 
   BoundaryInfo() {}
   BoundaryInfo(
    int a, 
    int b, 
-   int CompInd, 
-   int EdInd
+   int ci, 
+   int bm
   ) {
     A = a; B = b; 
-    ComponentIndex = CompInd;
-    EdgeIndex = EdInd;
-    Next = NULL;
+    ComponentIndex = ci;
+    BoundaryMarker = bm;;
+    next = NULL;
   }
 };
 
@@ -60,10 +61,10 @@ struct BoundaryInfo {
 
 struct Box {
   int A, B;
-  Box *Next;
+  Box *next;
   Box(
    int a, int b
-  ) {A = a; B = b; Next = NULL;}
+  ) {A = a; B = b; next = NULL;}
 };
 
 struct LineList {
@@ -103,12 +104,12 @@ struct BoundaryInfoList {
 
 struct ElemBox {
   Element E;
-  ElemBox *Next;
+  ElemBox *next;
   ElemBox(int a, 
    int b, int c
   ) {
     E.n1 = a; E.n2 = b; E.n3 = c; 
-    Next = NULL;
+    next = NULL;
   }
 };
 
@@ -131,9 +132,9 @@ struct ElemList {
 
 struct PointBox {
   Point P;
-  PointBox *Next;
+  PointBox *next;
   PointBox(double pos_x, double pos_y) : P(pos_x, pos_y) {
-    Next = NULL;
+    next = NULL;
   }
 };
 
@@ -153,16 +154,17 @@ struct PointList {
 
 struct Edge {
   Point P;
-  int 
-   Kind, Number_of_lines;
-  Edge *Next;
+  int marker, subdiv;
+  double alpha;
+  Edge *next;
 
-  Edge(int k, double x, double y, int n) {
+  Edge(int m, double x, double y, int n, double alp) {
     P.x = x;
     P.y = y;
-    Kind = k;
-    Number_of_lines = n;
-    Next = NULL;
+    marker = m;
+    subdiv = n;
+    alpha = alp;
+    next = NULL;
   }
 };
 
@@ -170,11 +172,11 @@ struct Component {
   Edge 
    *First_edge,
    *Last_edge;  
-  Component *Next;
+  Component *next;
 
   Component() {
     First_edge = Last_edge = NULL;
-    Next = NULL;
+    next = NULL;
   }
 };
 
@@ -186,7 +188,7 @@ struct Information {
     First_component = Last_component = NULL; 
   }  
   void New_component();
-  void Add_edge(int Kind, double x, double y, int Number_of_lines);
+  void Add_edge(int marker, double x, double y, int subdiv, double alpha);
   LineList *Create_list_of_lines();
   PointList *Create_list_of_points();
   BoundaryInfoList *CreateBoundaryInfo();
@@ -273,17 +275,17 @@ class Xgen {
   void XgInit(char *cfg_filename);
   void XgSetTimestep(double init_timestep);
   void XgNewComponent();
-  void XgAddEdge(int index, double x, double y);
-  void XgAddEdge(int index, double x, double y, int lines);
-  void XgAddEdge(int index, Point P);
-  void XgAddEdge(int index, Point P, int lines);
+  void XgAddEdge(int marker, double x, double y, int subdiv, double alpha);
+  void XgAddEdge(int marker, double x, double y, double alpha);  // subdiv = 1
+  void XgAddEdge(int marker, double x, double y, int subdiv);    // alpha = 0
+  void XgAddEdge(int marker, double x, double y);                // subdiv = 1, alpha = 0
   virtual void XgUserOutput(FILE *f);
   virtual double XgCriterion(Point a, Point b, Point c);
   virtual void XgReadData(FILE *f) = 0;
-  bool nogui;  // if trye, operates in batch mode.
+  bool nogui;        // if true, operates in batch mode.
   int steps_to_take; // used with -nogui only: number of relaxation steps to be done.
-  bool overlay; // if true, initial equidistant overlay point 
-                // distribution will be used, otherwise random 
+  bool overlay;      // if true, initial equidistant overlay point 
+                     // distribution will be used, otherwise random 
 
   private:
   double H, DeltaT, TimestepConst; int Nstore;
