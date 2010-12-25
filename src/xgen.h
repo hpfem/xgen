@@ -36,6 +36,7 @@ struct Element {
   } 
 };
 
+
 struct BoundaryEdge {
   int A, B;            // Vertex indices.
   double alpha;        // 0 for straight edges, nonzero for circular arcs.
@@ -56,36 +57,36 @@ struct BoundaryEdge {
 
 // Private types:
 
-struct Box {
+struct LineBox {
   int A, B;
-  Box *next;
-  Box(
+  LineBox *next;
+  LineBox(
    int a, int b
   ) {A = a; B = b; next = NULL;}
 };
 
 struct LineList {
-  Box *First, *Last, *Ptr;
+  LineBox *First, *Last, *Ptr;
   LineList() {First = Last = Ptr = NULL;}
-  void Init_ptr() {Ptr = First;}
-  bool Get_ptr(int &a, int &b);
-  bool Is_there(int C);
+  void Init() {Ptr = First;}
+  bool Get(int &a, int &b);
+  bool Contains(int C);
   void Add(int a, int b);
   bool Delete(int a, int b);
-  void Delete_last();
-  void Delete_list_of_lines();
-  void Get_last(int &a, int &b) {a = Last->A; b = Last->B;}
-  void Change_last(int a, int b);
-  bool Is_empty() {return (First == NULL) ? 1 : 0;}
+  void DeleteLast();
+  void Delete();
+  void GetLast(int &a, int &b) {a = Last->A; b = Last->B;}
+  void ChangeLast(int a, int b);
+  bool IsEmpty() {return (First == NULL) ? true : false;}
 };
 
 struct BoundaryEdgeList {
   BoundaryEdge *First, *Last, *Ptr;
   BoundaryEdgeList() {First = Last = Ptr = NULL;}
-  void Init_ptr() {Ptr = First;}
-  bool Get_ptr(BoundaryEdge &I);
+  void Init() {Ptr = First;}
+  bool Get(BoundaryEdge &I);
   void Add(int a, int b, int component_index, int marker, double alpha);
-  void Delete_last();
+  void DeleteLast();
   void Remove();
 };
 
@@ -101,7 +102,7 @@ struct ElemBox {
 struct ElemList {
   ElemBox *First, *Ptr, *Last;
   ElemList() {First = Last = Ptr = NULL;}
-  void Init_ptr() {Ptr = First;}
+  void Init() {Ptr = First;}
   bool Get(int &a, int &b, int &c);
   void Add(int a, int b, int c);
   void Remove();
@@ -111,16 +112,14 @@ struct ElemList {
 struct PointBox {
   Point P;
   PointBox *next;
-  PointBox(double pos_x, double pos_y) : P(pos_x, pos_y) {
-    next = NULL;
-  }
+  PointBox(double pos_x, double pos_y) : P(pos_x, pos_y) {next = NULL;}
 };
 
 struct PointList {
   PointBox *First, *Last, *Ptr;
   PointList() {First = Last = Ptr = NULL;}
-  void Init_ptr() {Ptr = First;}
-  bool Get_ptr(Point &T);
+  void Init() {Ptr = First;}
+  bool Get(Point &T);
   bool Get(int i, double &pos_x, double &pos_y);
   void Add(Point P);
   void Add(double pos_x, double pos_y);
@@ -153,16 +152,16 @@ struct BdyComponent {
   }
 };
 
-struct Boundary {
+struct BoundaryType {
   BdyComponent *First_bdy_component, *Last_bdy_component;
-  Boundary() {First_bdy_component = Last_bdy_component = NULL;}  
+  BoundaryType() {First_bdy_component = Last_bdy_component = NULL;}  
   void Add_bdy_component();
   void Add_bdy_segment(int marker, double x, double y, int subdiv, double alpha);
-  LineList *Create_list_of_lines();
-  PointList *Create_list_of_points();
-  BoundaryEdgeList *CreateBoundaryEdges();
-  double GiveBoundaryLength();
-  ~Boundary();
+  LineList *CreateLineList();
+  PointList *CreatePointList();
+  BoundaryEdgeList *CreateBoundaryEdgeList();
+  double GiveLength();
+  ~BoundaryType();
 };
 
 // Macro sqr(..):
@@ -186,14 +185,14 @@ class Xgen {
   double XgGiveTimestep();
   int XgGiveDimension();
   long XgGiveNpoin();
-  long XgGiveNfree();
-  long XgGiveNbound();
+  long XgGiveInteriorPtsNum();
+  long XgGiveBoundaryPtsNum();
   long XgGiveNelem();
   void XgGiveLimits(Point &min, Point &max);
   void XgInitPointList();
   bool XgGiveNextPoint(Point &p);
-  void XgInitFreePointList();
-  bool XgGiveNextFreePoint(Point &p);
+  void XgInitInteriorPointList();
+  bool XgGiveNextInteriorPoint(Point &p);
   void XgInitBoundaryLineList();
   bool XgGiveNextBoundaryLine(Point &p, Point &q);
   void XgInitBoundaryEdgeList();
@@ -211,7 +210,7 @@ class Xgen {
   void XgNextShift(Point *p_old, Point *p_new);
   bool XgMouseAdd(Point p);
   bool XgMouseRemove(Point p_from, Point *p_where);
-  bool XgRemoveFreePoint(Point p);
+  bool XgRemoveInteriorPoint(Point p);
   bool XgIsEmpty();
   void XgTimeInc();
   void XgTimeDec();
@@ -236,12 +235,12 @@ class Xgen {
 
   private:
   double H, DeltaT, TimestepConst; int Nstore;
-  char *Name; int Dimension; int Nfree, 
-  Nbound, Npoin, Nelem; Point *E; Boundary Info; 
+  char *Name; int Dimension; int InteriorPtsNum, 
+  BoundaryPtsNum, Npoin, Nelem; Point *E; BoundaryType Boundary; 
   LineList *L; PointList *EL; ElemList *ElemL; 
   BoundaryEdgeList *BIL; double Xmax, Xmin, Ymax, 
   Ymin, Area, First_DeltaT; int GoThroughPointsPtr, 
-  RedrawFreePtr, IterationPtr, First_Npoin, First_Nstore;
+  RedrawInteriorPtr, IterationPtr, First_Npoin, First_Nstore;
   void Shift(int i, Point Impuls);
   bool Find_nearest_left(int A, int B, int &wanted);
   Point Get_impuls(int i);

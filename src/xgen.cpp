@@ -36,13 +36,12 @@ void XgError(const char *what) {
  **   struct LineList:
  **/
 
-void LineList::Change_last(
- int a, int b
-) {
+void LineList::ChangeLast(int a, int b) 
+{
   {Last->A = a; Last->B = b;}
 }
 
-bool LineList::Get_ptr(int &a, int &b) 
+bool LineList::Get(int &a, int &b) 
 {
   if(Ptr != NULL) {
     a = Ptr->A;
@@ -53,9 +52,9 @@ bool LineList::Get_ptr(int &a, int &b)
   else return false;
 }
 
-void LineList::Delete_list_of_lines() {
+void LineList::Delete() {
   Ptr = First;
-  Box *p;
+  LineBox *p;
   while(Ptr != NULL) {
     p = Ptr;
     Ptr = Ptr -> next;
@@ -64,8 +63,8 @@ void LineList::Delete_list_of_lines() {
   First = Last = NULL;
 }
 
-bool LineList::Is_there(int C) {
-  Box *P = First;
+bool LineList::Contains(int C) {
+  LineBox *P = First;
   while(P != NULL) {
     if((P->A == C) || (P->B == C)) return true;
     P = P->next;
@@ -77,16 +76,16 @@ void LineList::Add(
  int a, int b
 ) {
   if (Last == NULL) {
-    First = Last = new Box(a, b);
+    First = Last = new LineBox(a, b);
   }
   else {
-    Last->next = new Box(a, b);
+    Last->next = new LineBox(a, b);
     Last = Last->next;
   }
 }
 
-void LineList::Delete_last() {
-  Box *p = First;
+void LineList::DeleteLast() {
+  LineBox *p = First;
   if (p->next == NULL) {
     delete p;
     First = Last = NULL;
@@ -107,7 +106,7 @@ void LineList::Delete_last() {
 
 bool LineList::Delete(int a, int b) 
 {
-  Box *p = First, *l = NULL;
+  LineBox *p = First, *l = NULL;
   while (p != NULL) {
     if ((p->A == a && p->B == b) || (p->A == b && p->B == a)) {
       if (l == NULL) {
@@ -136,7 +135,7 @@ bool LineList::Delete(int a, int b)
  **   struct BoundaryEdgeList:
  **/
 
-bool BoundaryEdgeList::Get_ptr(BoundaryEdge &BE) {
+bool BoundaryEdgeList::Get(BoundaryEdge &BE) {
   if(Ptr != NULL) {
     BE = *Ptr;
     Ptr = Ptr->next;
@@ -156,7 +155,7 @@ void BoundaryEdgeList::Add(int a, int b, int component_index, int marker, double
   }
 }
 
-void BoundaryEdgeList::Delete_last() {
+void BoundaryEdgeList::DeleteLast() {
   BoundaryEdge *p = First;
   if (p->next == NULL) {
     delete p;
@@ -242,7 +241,7 @@ bool PointList::Get(int i, double &pos_x, double &pos_y
   return true;
 }
 
-bool PointList::Get_ptr(Point &T) {
+bool PointList::Get(Point &T) {
   if(Ptr != NULL) {
     T.x = Ptr->P.x;
     T.y = Ptr->P.y;
@@ -283,33 +282,33 @@ Point PointList::Delete() {
  **   struct Boundary:
  **/
 
-void Boundary::Add_bdy_component() {
+void BoundaryType::Add_bdy_component() {
   if(Last_bdy_component == NULL) {
     First_bdy_component = Last_bdy_component = new BdyComponent();
     if(First_bdy_component == NULL) 
-      XgError("Boundary::Add_bdy_component(): Not enough memory.");
+      XgError("BoundaryType::Add_bdy_component(): Not enough memory.");
   }
   else {
     BdyComponent *help = Last_bdy_component;
     Last_bdy_component = new BdyComponent();
     help -> next = Last_bdy_component;
     if(help -> next == NULL) 
-      XgError("Boundary::Add_bdy_component(): Not enough memory.");
+      XgError("BoundaryType::Add_bdy_component(): Not enough memory.");
   }
 }
 
-void Boundary::Add_bdy_segment(int marker, double x, double y, int subdiv, double alpha) 
+void BoundaryType::Add_bdy_segment(int marker, double x, double y, int subdiv, double alpha) 
 {
   if(Last_bdy_component == NULL) {
     First_bdy_component = Last_bdy_component = new BdyComponent();
     if(First_bdy_component == NULL) 
-      XgError("Boundary::Add_bdy_segment(): Not enough memory.");    
+      XgError("BoundaryType::Add_bdy_segment(): Not enough memory.");    
   }
   if(Last_bdy_component -> Last_edge == NULL) {
     Last_bdy_component -> Last_edge = 
     Last_bdy_component -> First_edge = new Edge(marker, x, y, subdiv, alpha);
     if(Last_bdy_component -> Last_edge == NULL) 
-      XgError("Boundary::Add_bdy_segment(): Not enough memory.");    
+      XgError("BoundaryType::Add_bdy_segment(): Not enough memory.");    
   } 
   else {
     Edge *help = Last_bdy_component -> Last_edge;
@@ -317,11 +316,11 @@ void Boundary::Add_bdy_segment(int marker, double x, double y, int subdiv, doubl
     new Edge(marker, x, y, subdiv, alpha);
     help -> next = Last_bdy_component -> Last_edge;
     if(help -> next == NULL) 
-      XgError("Boundary::Add_bdy_segment(): Not enough memory."); 
+      XgError("BoundaryType::Add_bdy_segment(): Not enough memory."); 
   }
 }
 
-LineList* Boundary::Create_list_of_lines() {
+LineList* BoundaryType::CreateLineList() {
   LineList* l = new LineList;
   int Count = 0, First_point_of_component = 0;
   int subdiv = 0;
@@ -338,14 +337,14 @@ LineList* Boundary::Create_list_of_lines() {
       }
       Edge_pointer = Edge_pointer -> next;
     }
-    l->Delete_last();
+    l->DeleteLast();
     l->Add(Count-1, First_point_of_component);
     Bdy_component_pointer = Bdy_component_pointer -> next;
   }
   return l;
 }       
 
-PointList* Boundary::Create_list_of_points() {
+PointList* BoundaryType::CreatePointList() {
   PointList* l = new PointList;
   Point 
    First_point_of_component(0, 0),
@@ -376,7 +375,7 @@ PointList* Boundary::Create_list_of_points() {
   return l;
 }       
 
-double Boundary::GiveBoundaryLength() {
+double BoundaryType::GiveLength() {
   double length = 0;
   Point 
    First_point_of_component(0, 0),
@@ -399,7 +398,7 @@ double Boundary::GiveBoundaryLength() {
   return length;
 }       
 
-BoundaryEdgeList* Boundary::CreateBoundaryEdges() {
+BoundaryEdgeList* BoundaryType::CreateBoundaryEdgeList() {
   BoundaryEdgeList* bil = new BoundaryEdgeList;
   int Count = 0, First_point_of_component = 0;
   int subdiv = 0, component_index = 0;
@@ -427,7 +426,7 @@ BoundaryEdgeList* Boundary::CreateBoundaryEdges() {
       last_subdiv = Edge_pointer -> subdiv;
       Edge_pointer = Edge_pointer -> next;
     }
-    bil->Delete_last();
+    bil->DeleteLast();
     bil->Add(
         Count - 1, First_point_of_component,
         component_index,
@@ -440,7 +439,7 @@ BoundaryEdgeList* Boundary::CreateBoundaryEdges() {
   return bil;
 }       
 
-Boundary::~Boundary() {
+BoundaryType::~BoundaryType() {
   BdyComponent *comp_ptr = First_bdy_component;
   while (comp_ptr != NULL) {
     Edge *edge_ptr = comp_ptr -> First_edge;
@@ -506,12 +505,12 @@ long Xgen::XgGiveNpoin() {
   return Npoin;
 }
 
-long Xgen::XgGiveNfree() {
-  return Nfree;
+long Xgen::XgGiveInteriorPtsNum() {
+  return InteriorPtsNum;
 }
 
-long Xgen::XgGiveNbound() {
-  return Nbound;
+long Xgen::XgGiveBoundaryPtsNum() {
+  return BoundaryPtsNum;
 }
 
 long Xgen::XgGiveNelem() {
@@ -537,25 +536,25 @@ bool Xgen::XgGiveNextPoint(Point &p) {
   else return false;
 } 
 
-void Xgen::XgInitFreePointList() {
-  RedrawFreePtr = Nbound;
+void Xgen::XgInitInteriorPointList() {
+  RedrawInteriorPtr = BoundaryPtsNum;
 }
 
-bool Xgen::XgGiveNextFreePoint(Point &p) {
-  if(RedrawFreePtr < Npoin) {
-    p = E[RedrawFreePtr++];
+bool Xgen::XgGiveNextInteriorPoint(Point &p) {
+  if(RedrawInteriorPtr < Npoin) {
+    p = E[RedrawInteriorPtr++];
     return true;
   }
   else return false;
 }
 
 void Xgen::XgInitBoundaryLineList() {
-  L->Init_ptr();
+  L->Init();
 }
 
 bool Xgen::XgGiveNextBoundaryLine(Point &p, Point &q) {
   int A, B;
-  if(L->Get_ptr(A, B)) {
+  if(L->Get(A, B)) {
     p = E[A];
     q = E[B];
     return true;
@@ -564,16 +563,16 @@ bool Xgen::XgGiveNextBoundaryLine(Point &p, Point &q) {
 }
 
 void Xgen::XgInitBoundaryEdgeList() {
-  BIL->Init_ptr();
+  BIL->Init();
 }
 
 bool Xgen::XgGiveNextBoundaryEdge(BoundaryEdge &edge_ptr) {
-  if(BIL->Get_ptr(edge_ptr)) return true;
+  if(BIL->Get(edge_ptr)) return true;
   else return false;
 }
 
 void Xgen::XgInitElementList() {
-  ElemL->Init_ptr();
+  ElemL->Init();
 }
 
 bool Xgen::XgGiveNextElement(Point &p, Point &q, Point &r) {
@@ -594,8 +593,8 @@ bool Xgen::XgGiveNextElement(Element &element) {
 
 void Xgen::XgForgetGrid() {
   ElemL->Remove();
-  L->Delete_list_of_lines();
-  L = Info.Create_list_of_lines();
+  L->Delete();
+  L = Boundary.CreateLineList();
   Nelem = 0;
   REMOVE_BDY_PTS_ACTIVE = true;
 }
@@ -604,15 +603,15 @@ void Xgen::XgForgetGrid() {
 void Xgen::XgSetPointsRandom() {
   Npoin = First_Npoin;
   Nstore = First_Nstore;
-  if(Nbound > Npoin) XgError("Xgen::XgSetPointsRandom(): Internal (1).");
-  Nfree = Npoin - Nbound;
+  if(BoundaryPtsNum > Npoin) XgError("Xgen::XgSetPointsRandom(): Internal error (1).");
+  InteriorPtsNum = Npoin - BoundaryPtsNum;
 #ifdef RAND_MAX
   double Rand_max = RAND_MAX;
 #else
   double Rand_max = pow(2.0, 15.0);
 #endif
   srand(1);
-  for(int i=Nbound; i<Npoin; i++) {
+  for(int i=BoundaryPtsNum; i<Npoin; i++) {
     do {
       E[i].x =
         rand()*(Xmax - Xmin)/Rand_max + Xmin;
@@ -620,7 +619,7 @@ void Xgen::XgSetPointsRandom() {
 	rand()*(Ymax - Ymin)/Rand_max + Ymin;
     } while(!Is_inside(E[i]));
   }
-  printf("Domain filled with random points, %d grid points, %d interior.\n", Npoin, Nfree);
+  printf("Domain filled with random points, %d grid points, %d interior.\n", Npoin, InteriorPtsNum);
 }
 
 bool odd(int i) {
@@ -630,10 +629,10 @@ bool odd(int i) {
 
 //points are equidistantly placed
 void Xgen::XgSetPointsOverlay() {
-  // Place Nfree + Nstore new points!
+  // Place InteriorPtsNum + Nstore new points!
   int Nx = (int)((Xmax-Xmin)/H);
   int Ny = (int)((Ymax-Ymin)/(H*sqrt(3)/2.0));
-  Npoin = Nbound;
+  Npoin = BoundaryPtsNum;
 
 #ifdef RAND_MAX
   double Rand_max = RAND_MAX;
@@ -656,18 +655,18 @@ void Xgen::XgSetPointsOverlay() {
     }
   }      
 
-  if(Nbound > Npoin) XgError("Xgen::XgSetPointsOverlay(): Internal (1).");
-  Nfree = Npoin - Nbound;
+  if(BoundaryPtsNum > Npoin) XgError("Xgen::XgSetPointsOverlay(): Internal error (1).");
+  InteriorPtsNum = Npoin - BoundaryPtsNum;
   Nstore = First_Nstore + First_Npoin - Npoin;
-  IterationPtr = Nbound;
-  RedrawFreePtr = Nbound;
-  GoThroughPointsPtr = Nbound;
+  IterationPtr = BoundaryPtsNum;
+  RedrawInteriorPtr = BoundaryPtsNum;
+  GoThroughPointsPtr = BoundaryPtsNum;
 
-  printf("Domain filled with overlay points, %d grid points, %d interior.\n", Npoin, Nfree);
+  printf("Domain filled with overlay points, %d grid points, %d interior.\n", Npoin, InteriorPtsNum);
 }
 
 void Xgen::XgOutput(FILE *f) {
-  BIL = Info.CreateBoundaryEdges();
+  BIL = Boundary.CreateBoundaryEdgeList();
   XgUserOutput(f);
   BIL -> Remove();
 } 
@@ -676,12 +675,12 @@ void Xgen::XgInputPoints(FILE *f, int *error, int *mem) {
   *error = 0;
   *mem = 0;
   
-  Nstore = Nstore + Npoin - Nbound;
-  Npoin = Nbound;
-  IterationPtr = Nbound;
+  Nstore = Nstore + Npoin - BoundaryPtsNum;
+  Npoin = BoundaryPtsNum;
+  IterationPtr = BoundaryPtsNum;
 
   Point P, *E0;
-  E0 = E + Nbound;
+  E0 = E + BoundaryPtsNum;
   while(Get(f, &P.x) && Get(f, &P.y)) if(Is_inside(P)) {
     Npoin++; Nstore--;
     if(Nstore == 0) break;
@@ -689,16 +688,16 @@ void Xgen::XgInputPoints(FILE *f, int *error, int *mem) {
     E0++;
   }
 
-  if(Nbound > Npoin) XgError("Xgen::XgInputPoints: Internal (1).");
-  Nfree = Npoin - Nbound;
+  if(BoundaryPtsNum > Npoin) XgError("Xgen::XgInputPoints: Internal error (1).");
+  InteriorPtsNum = Npoin - BoundaryPtsNum;
   return;
 } 
 
 void Xgen::XgOutputPoints(FILE *f) {
-  fprintf(f, "# List of free points:\n");
+  fprintf(f, "# List of interior points:\n");
 
   Point P;
-  GoThroughPointsPtr = Nbound;
+  GoThroughPointsPtr = BoundaryPtsNum;
   while(XgGiveNextPoint(P) == true) fprintf(f, "%g %g\n", P.x, P.y);
 } 
 
@@ -720,9 +719,9 @@ bool Xgen::XgNextTriangle(Point &p, Point &q, Point &r, bool &finished) {
     while(XgGiveNextBoundaryLine(a, b) == true) {
       double h = sqrt((a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y));
       double dh = h/coeff;
-      XgInitFreePointList();
+      XgInitInteriorPointList();
       Point c;
-      while(XgGiveNextFreePoint(c) == true) {
+      while(XgGiveNextInteriorPoint(c) == true) {
         Point ab, ab2, ab3;
         ab.x = 0.5*(a.x + b.x);
         ab.y = 0.5*(a.y + b.y);
@@ -745,32 +744,32 @@ bool Xgen::XgNextTriangle(Point &p, Point &q, Point &r, bool &finished) {
            dist_ab2_c < dh || dist_ab3_c < dh) {
           printf("Point [%g, %g] closer than h/%g to the boundary -> deleting.\n", c.x, c.y, coeff);
           was_deleted++;
-          bool success = XgRemoveFreePoint(c);
+          bool success = XgRemoveInteriorPoint(c);
           if(!success) 
-            XgError("Xgen::XgNextTriangle: Internal while removing points that lie too close to boundary.");
+            XgError("Xgen::XgNextTriangle: Internal error while removing points that lie too close to boundary.");
           //break;
         }
       }                
     }                 
     REMOVE_BDY_PTS_ACTIVE = false;
     if(was_deleted > 0) printf("Deleted %d points, %d grid points, %d interior.\n",
-      was_deleted, Npoin, Nfree);
+      was_deleted, Npoin, InteriorPtsNum);
   }
 
-  L->Get_last(A, B);
+  L->GetLast(A, B);
 
   if(!Find_nearest_left(A, B, C)) return false;
 
   if (L->Delete(C, A)) {
-    if (L->Delete(B, C)) L->Delete_last();
-    else L->Change_last(C, B);
+    if (L->Delete(B, C)) L->DeleteLast();
+    else L->ChangeLast(C, B);
   }
   else {
-  L->Change_last(A, C);
+  L->ChangeLast(A, C);
     if (!L->Delete(B, C)) L->Add(C, B);
   }
 
-  if(L->Is_empty()) finished = true; 
+  if(L->IsEmpty()) finished = true; 
 
   // Elements are positively oriented.
   ElemL -> Add(A, B, C);
@@ -785,9 +784,9 @@ bool Xgen::XgNextTriangle(Point &p, Point &q, Point &r, bool &finished) {
 }
 
 void Xgen::XgNextShift(Point *p_old, Point *p_new) {
-  if(Npoin > Nbound) {
+  if(Npoin > BoundaryPtsNum) {
     if(IterationPtr >= Npoin) {
-      IterationPtr = Nbound;
+      IterationPtr = BoundaryPtsNum;
     }
     Point impuls = Get_impuls(IterationPtr);
     *p_old = E[IterationPtr];
@@ -800,20 +799,20 @@ bool Xgen::XgMouseAdd(Point p) {
   if(Nstore == 0) return false;
   if(!Is_inside(p)) return false;
   E[Npoin] = p;
-  Nfree++;
+  InteriorPtsNum++;
   Npoin++;
   Nstore--;
-  IterationPtr=Nbound;
+  IterationPtr=BoundaryPtsNum;
   printf("Point at [%g, %g] added to the end of the list, %d grid points, %d interior.\n", 
-    p.x, p.y, Npoin, Nfree);
+    p.x, p.y, Npoin, InteriorPtsNum);
   return true;
 }
 
 bool Xgen::XgMouseRemove(Point p_from, Point *p_where) {
-  if(Nfree == 0) return false;
-  int wanted = Nbound;  //case it is the last free one
+  if(InteriorPtsNum == 0) return false;
+  int wanted = BoundaryPtsNum;  // if it is the last interior one
   double min = 1e100;
-  for(int j=Nbound; j < Npoin; j++) {
+  for(int j=BoundaryPtsNum; j < Npoin; j++) {
     Point Dr = E[j] - p_from;
     if(Dr.abs() < min) {
       min = Dr.abs();
@@ -823,20 +822,20 @@ bool Xgen::XgMouseRemove(Point p_from, Point *p_where) {
   *p_where = E[wanted];
   for(int j = wanted + 1; j < Npoin; j++) E[j - 1] = E[j];
   Npoin--;
-  Nfree--;
+  InteriorPtsNum--;
   Nstore++;
-  IterationPtr = Nbound;
+  IterationPtr = BoundaryPtsNum;
   printf("Point no. %d at [%g, %g] removed by mouse, %d grid points, %d interior.\n", 
-    wanted, E[wanted].x, E[wanted].y, Npoin, Nfree);
+    wanted, E[wanted].x, E[wanted].y, Npoin, InteriorPtsNum);
   return true;
 }
 
-bool Xgen::XgRemoveFreePoint(Point p) {
-  if(Nfree <= 0) return false;
+bool Xgen::XgRemoveInteriorPoint(Point p) {
+  if(InteriorPtsNum <= 0) return false;
   int wanted = -1;  // Index of the wanted point.
   double min = 1e100;
-  // Looping through free points.
-  for(int j = Nbound; j < Npoin; j++) {
+  // Looping through interior points.
+  for(int j = BoundaryPtsNum; j < Npoin; j++) {
     double dist = sqrt((E[j].x - p.x)*(E[j].x - p.x) + 
                        (E[j].y - p.y)*(E[j].y - p.y));
     if(dist < min) {
@@ -844,21 +843,21 @@ bool Xgen::XgRemoveFreePoint(Point p) {
       wanted = j;
     }
   }
-  if(wanted == -1) XgError("Xgen::XgRemoveFreePoint(): Internal error.");
+  if(wanted == -1) XgError("Xgen::XgRemoveInteriorPoint(): Internal error.");
   for(int j = wanted; j< Npoin-1; j++) E[j] = E[j+1];
   Npoin--;
-  Nfree--;
+  InteriorPtsNum--;
   Nstore++;
-  RedrawFreePtr--;
+  RedrawInteriorPtr--;
 
   if (this->nogui == false) Undraw_point1(p);
-  IterationPtr = Nbound;
+  IterationPtr = BoundaryPtsNum;
 
   return true;
 }
 
 bool Xgen::XgIsEmpty() {
-  return (Npoin == Nbound);
+  return (Npoin == BoundaryPtsNum);
 }
 
 void Xgen::XgTimeInc() {
@@ -897,7 +896,7 @@ void Xgen::XgInit(char *cfg_filename) {
   if(cfg_filename == NULL) XgError("Xgen::XgInit(): Empty filename.\nVerify the number of command line parameters.");
 
   // Initializing variables.
-  Nfree = Npoin = First_Npoin = Nelem = Nbound = 0;
+  InteriorPtsNum = Npoin = First_Npoin = Nelem = BoundaryPtsNum = 0;
   Xmax = Xmin = Ymax = Ymin = 0;
   H = Area = 0;
   E = NULL;
@@ -906,7 +905,7 @@ void Xgen::XgInit(char *cfg_filename) {
   BIL = new BoundaryEdgeList;
   ElemL = new ElemList;
   IterationPtr = 0;
-  RedrawFreePtr = 0;
+  RedrawInteriorPtr = 0;
   GoThroughPointsPtr = 0;
   TimestepConst = 0.8;
 
@@ -939,7 +938,7 @@ void Xgen::XgInit(char *cfg_filename) {
   fclose(f); 
 
   // Sanity checks.
-  if(Nbound == 0) XgError("Bad configuration file: Nbound = 0.");
+  if(BoundaryPtsNum == 0) XgError("Bad configuration file: BoundaryPtsNum = 0.");
   if(DeltaT <= 0) XgError("DeltaT not initialized in XgReadData().");
  
   // Storing DeltaT in case user would want to refresh it.
@@ -949,38 +948,38 @@ void Xgen::XgInit(char *cfg_filename) {
   First_Nstore = Nstore;
 
   // Average boundary edge length.
-  H = Info.GiveBoundaryLength()/Nbound;
+  H = Boundary.GiveLength()/BoundaryPtsNum;
 
   // Creating initial point list.
-  EL = Info.Create_list_of_points();
+  EL = Boundary.CreatePointList();
 
   // Calculating extrems of boundary coordinates.
   Point T;
-  EL->Init_ptr();
+  EL->Init();
   Xmin = EL->First->P.x;            
   Xmax = EL->First->P.x;            
   Ymin = EL->First->P.y;            
   Ymax = EL->First->P.y;            
-  while(EL->Get_ptr(T)) {                      
+  while(EL->Get(T)) {                      
     if(T.x < Xmin) Xmin = T.x;
     if(T.x > Xmax) Xmax = T.x;
     if(T.y < Ymin) Ymin = T.y;
     if(T.y > Ymax) Ymax = T.y;
   }
-  EL->Init_ptr();
+  EL->Init();
 
   // Calculating the domain's area.
-  L = Info.Create_list_of_lines();
+  L = Boundary.CreateLineList();
   int A, B;
   double xa, xb, ya, yb;
   Area = 0;                                                
-  L->Init_ptr();                                           
-  while(L->Get_ptr(A, B)) {                                    
+  L->Init();                                           
+  while(L->Get(A, B)) {                                    
     EL->Get(A, xa, ya);                                  
     EL->Get(B, xb, yb);                                  
     Area += (ya + yb - 2*Ymin)*(xa - xb)/2;                
   }                          
-  L->Init_ptr();                                           
+  L->Init();                                           
 
   // Sanity checks.
   if(Area <= 0)
@@ -989,13 +988,13 @@ void Xgen::XgInit(char *cfg_filename) {
   // Calculating optimal number of interior points.
   int help;
   help = (int)
-  ((Area/(H*H*sqrt(3)/4) - 0.9*Nbound)/2 + 0.5);
-  if(help <= 0) Nfree = 0;
-  else Nfree = help;
-  Npoin = Nfree + Nbound;
+  ((Area/(H*H*sqrt(3)/4) - 0.9*BoundaryPtsNum)/2 + 0.5);
+  if(help <= 0) InteriorPtsNum = 0;
+  else InteriorPtsNum = help;
+  Npoin = InteriorPtsNum + BoundaryPtsNum;
 
   // Initializing iteration loop.
-  IterationPtr = Nbound;
+  IterationPtr = BoundaryPtsNum;
 
   // Storing Npoin incase user would want to refresh it.
   First_Npoin = Npoin;
@@ -1003,7 +1002,7 @@ void Xgen::XgInit(char *cfg_filename) {
   // Copying boundary points to the beginning of the point list.
   E = (Point*)malloc((Npoin + Nstore)*sizeof(Point)); 
   if(E == NULL) XgError("Not enough memory for points.");                                         
-  else for(int i = 0; i<Nbound; i++) E[i] = EL->Delete();
+  else for(int i = 0; i<BoundaryPtsNum; i++) E[i] = EL->Delete();
 
   // Setting initial points either randomly or 
   // using an equidistributed regular pattern.
@@ -1016,8 +1015,8 @@ void Xgen::XgInit(char *cfg_filename) {
   if (this->nogui == true) {
     // Run smoothing iterations.
     for (int s = 0; s < this->steps_to_take; s++) {
-      this->XgInitFreePointList();
-      for(int i=0; i<this->Nfree; i++) {
+      this->XgInitInteriorPointList();
+      for(int i=0; i<this->InteriorPtsNum; i++) {
         Point P1, P2;
         this->XgNextShift(&P1, &P2);
       }
@@ -1033,7 +1032,7 @@ void Xgen::XgInit(char *cfg_filename) {
     // Save the mesh to a file.
     FILE *f = fopen("out.mesh", "w");
     if (f == NULL) XgError("Failed to open mesh file for writing.");
-    BIL = Info.CreateBoundaryEdges();
+    BIL = Boundary.CreateBoundaryEdgeList();
     XgUserOutput(f);
     BIL -> Remove();
     fclose(f);
@@ -1051,12 +1050,12 @@ void Xgen::XgSetTimestep(double init_timestep) {
 }
 
 void Xgen::XgAddBdyComponent() {
-  Info.Add_bdy_component();
+  Boundary.Add_bdy_component();
 }
 
 void Xgen::XgAddBdySegment(int marker, double x, double y, int subdiv, double alpha) {
-  Info.Add_bdy_segment(marker, x, y, subdiv, alpha);
-  Nbound += subdiv;
+  Boundary.Add_bdy_segment(marker, x, y, subdiv, alpha);
+  BoundaryPtsNum += subdiv;
 }
 
 /*
@@ -1118,7 +1117,7 @@ void Xgen::XgUserOutput(FILE *f) {
   counter = 0;
   while(XgGiveNextBoundaryEdge(I) == true) {
     counter++;
-    if (counter < XgGiveNbound()) fprintf(f, "  { %d, %d , %d},\n", I.A, I.B, I.marker);
+    if (counter < XgGiveBoundaryPtsNum()) fprintf(f, "  { %d, %d , %d},\n", I.A, I.B, I.marker);
     else fprintf(f, "  { %d, %d , %d}\n", I.A, I.B, I.marker);
   }
   fprintf(f, "}\n");
@@ -1167,8 +1166,8 @@ bool Xgen::Is_inside(Point &P) {
   int Flag = 0;
   int a, b;
 
-  L->Init_ptr();
-  while((L->Get_ptr(a, b)) == 1) {
+  L->Init();
+  while((L->Get(a, b)) == 1) {
     Point A = E[a];
     Point B = E[b];
     if((A.x <= P.x) && (P.x < B.x)) {
@@ -1199,8 +1198,8 @@ bool Xgen::Intact(Point a, Point b, Point c, Point d)
 bool Xgen::Boundary_intact(Point a, Point b, Point c) 
 {
   int d, e;
-  L -> Init_ptr();
-  while(L->Get_ptr(d, e)) {
+  L -> Init();
+  while(L->Get(d, e)) {
     if(Intact(a, c, E[d], E[e]) ||
      Intact(b, c, E[d], E[e])) return true;
   }
@@ -1238,7 +1237,7 @@ bool Xgen::Find_nearest_left(int A, int B, int &wanted)
       if (Is_left(E[A], E[B], E[C])) {
         m = XgCriterion(E[A], E[B], E[C]);
         if(m < Min) {
-          if(Is_inside(E[C]) || L->Is_there(C)) {
+          if(Is_inside(E[C]) || L->Contains(C)) {
             if(!Boundary_intact(E[A], E[B], E[C])) {
               if(TriaVolume(E[A], E[B], E[C]) > XG_ZERO) {
   	        Min = m;
@@ -1349,7 +1348,7 @@ static struct {
    info_l1_label4;
   char 
    info_npoin_str[50],
-   info_nfree_str[50],
+   info_ninterior_str[50],
    info_nelem_str[50],
    info_timestep_str[50];
   XmString 
@@ -1481,7 +1480,7 @@ void Graphics_const_init(int iwidth, int iheight) {
   Graphics_const_init();
 }
 
-void Show_normal_situation() {
+void Draw_boundary_and_points() {
   Point a, b;             
            
   RS.RPtr->XgInitBoundaryLineList();                                           
@@ -1489,8 +1488,8 @@ void Show_normal_situation() {
     Draw_point2(a);
     Draw_line(a, b);                       
   }                 
-  RS.RPtr->XgInitFreePointList();
-  while(RS.RPtr->XgGiveNextFreePoint(a) == true) Draw_point1(a);
+  RS.RPtr->XgInitInteriorPointList();
+  while(RS.RPtr->XgGiveNextInteriorPoint(a) == true) Draw_point1(a);
 }
 
 void Redraw_boundary() {
@@ -1515,7 +1514,7 @@ void Redraw_grid() {
 
 void Redraw_blackboard() {
   if(RS.Grid_working || RS.Grid_ready) Redraw_grid();
-  Show_normal_situation();
+  Draw_boundary_and_points();
 } 
 
 void Get_optimal_size(int *width, int *height) {
@@ -2115,7 +2114,7 @@ void TrianglesErrorDialogOK(
    XtDisplay(RS.blackboard),  
    XtWindow(RS.blackboard)    
   );    
-  Show_normal_situation();
+  Draw_boundary_and_points();
 }
 
 void SavePointsErrorDialog(char *event, char *where) {
@@ -2978,9 +2977,9 @@ void InitLoadDialogOK(
             strcat(points_info, number);
             XmString info_l2_label = 
              XmStringCreate(points_info, XmFONTLIST_DEFAULT_TAG);
-            int nfree = RS.RPtr->XgGiveNfree();
-            strcpy(points_info, RS.info_nfree_str);
-            sprintf(number, "%d", nfree);
+            int ninterior = RS.RPtr->XgGiveInteriorPtsNum();
+            strcpy(points_info, RS.info_ninterior_str);
+            sprintf(number, "%d", ninterior);
             strcat(points_info, number);
             XmString info_l3_label = 
              XmStringCreate(points_info, XmFONTLIST_DEFAULT_TAG);
@@ -3002,7 +3001,7 @@ void InitLoadDialogOK(
              XtDisplay(RS.blackboard),  
              XtWindow(RS.blackboard)    
             );    
-            Show_normal_situation();
+            Draw_boundary_and_points();
           }
         } 
       }
@@ -3066,7 +3065,7 @@ void SaveDialogOK(
      XtDisplay(RS.blackboard),  
      XtWindow(RS.blackboard)    
     );    
-    Show_normal_situation();
+    Draw_boundary_and_points();
   }
 }
 
@@ -3477,9 +3476,9 @@ void InitDialogSET(
   strcat(points_info, number);
   XmString info_l2_label = 
    XmStringCreate(points_info, XmFONTLIST_DEFAULT_TAG);
-  int nfree = RS.RPtr->XgGiveNfree();
-  strcpy(points_info, RS.info_nfree_str);
-  sprintf(number, "%d", nfree);
+  int ninterior = RS.RPtr->XgGiveInteriorPtsNum();
+  strcpy(points_info, RS.info_ninterior_str);
+  sprintf(number, "%d", ninterior);
   strcat(points_info, number);
   XmString info_l3_label = 
    XmStringCreate(points_info, XmFONTLIST_DEFAULT_TAG);
@@ -3500,7 +3499,7 @@ void InitDialogSET(
     XtDisplay(RS.blackboard),  
     XtWindow(RS.blackboard)    
   );    
-  Show_normal_situation();
+  Draw_boundary_and_points();
 }
 
 void QuitDialog(XtPointer client_data) {
@@ -4238,7 +4237,7 @@ void InitForget(
       XtDisplay(RS.blackboard),  
       XtWindow(RS.blackboard)    
     );    
-    Show_normal_situation();
+    Draw_boundary_and_points();
   } 
   else InitDialog();     
 }
@@ -4308,9 +4307,9 @@ static void BlackboardInput(
       strcat(points_info, number);
       XmString info_l2_label = 
        XmStringCreate(points_info, XmFONTLIST_DEFAULT_TAG);
-      int nfree = RS.RPtr->XgGiveNfree();
-      strcpy(points_info, RS.info_nfree_str);
-      sprintf(number, "%d", nfree);
+      int ninterior = RS.RPtr->XgGiveInteriorPtsNum();
+      strcpy(points_info, RS.info_ninterior_str);
+      sprintf(number, "%d", ninterior);
       strcat(points_info, number);
       XmString info_l3_label = 
        XmStringCreate(points_info, XmFONTLIST_DEFAULT_TAG);
@@ -4341,9 +4340,9 @@ static void BlackboardInput(
       strcat(points_info, number);
       XmString info_l2_label = 
        XmStringCreate(points_info, XmFONTLIST_DEFAULT_TAG);
-      int nfree = RS.RPtr->XgGiveNfree();
-      strcpy(points_info, RS.info_nfree_str);
-      sprintf(number, "%d", nfree);
+      int ninterior = RS.RPtr->XgGiveInteriorPtsNum();
+      strcpy(points_info, RS.info_ninterior_str);
+      sprintf(number, "%d", ninterior);
       strcat(points_info, number);
       XmString info_l3_label = 
        XmStringCreate(points_info, XmFONTLIST_DEFAULT_TAG);
@@ -4599,15 +4598,15 @@ void Info(
   XmString info_l2_label = 
    XmStringCreate(points_info, XmFONTLIST_DEFAULT_TAG);
 
-  int nfree = RS.RPtr->XgGiveNfree();
-  strcpy(points_info, RS.info_nfree_str);
-  sprintf(number, "%d", nfree);
+  int ninterior = RS.RPtr->XgGiveInteriorPtsNum();
+  strcpy(points_info, RS.info_ninterior_str);
+  sprintf(number, "%d", ninterior);
   strcat(points_info, number);
   XmString info_l3_label = 
    XmStringCreate(points_info, XmFONTLIST_DEFAULT_TAG);
 
   strcpy(points_info, "Boundary points: ");
-  sprintf(number, "%d", npoin - nfree);
+  sprintf(number, "%d", npoin - ninterior);
   strcat(points_info, number);
   XmString info_l4_label = 
    XmStringCreate(points_info, XmFONTLIST_DEFAULT_TAG);
@@ -5049,7 +5048,7 @@ void RSGetConfiguration(Xgen *User) {
   RS.info_l1_label4 = XmStringCreate(
     msg, XmFONTLIST_DEFAULT_TAG);
   strcpy(RS.info_npoin_str, "Number of points: ");
-  strcpy(RS.info_nfree_str, "Interior points: ");
+  strcpy(RS.info_ninterior_str, "Interior points: ");
   strcpy(RS.info_nelem_str, "Number of elements: ");
   strcpy(RS.info_timestep_str, "Timestep: ");
 
