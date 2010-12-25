@@ -1,9 +1,6 @@
 /**
- **  2D interactive grid generator
- **            class  xgen 
- **             1.3.1998
- **          (Pavel Solin)
- **       All rights reserved.
+ **  A simple 2D interactive mesh generator Xgen 
+ **  (c) Pavel Solin, 1998 - 2011
  **/
 
 # include <stdio.h>
@@ -19,82 +16,11 @@
 
 double XG_ZERO = 1e-12;
 
-/*
- *   Additional i/o functions:
- */
-
 bool REMOVE_BDY_PTS_ACTIVE = true;
 
-int Get(FILE *f, Point *what) {
-  char str[255];
-  if(!Get(f, str)) return 0;
-  what->x = (double)atof(str);
-  if(!Get(f, str)) return 0;
-  what->y = (double)atof(str);
-  return 1;
-}
-
-int Get(FILE *f, Element *what) {
-  char str[255];
-  if(!Get(f, str)) return 0;
-  what->n1 = (int)atoi(str);
-  if(!Get(f, str)) return 0;
-  what->n2 = (int)atoi(str);
-  if(!Get(f, str)) return 0;
-  what->n3 = (int)atoi(str);
-  return 1;
-}
-
-int Get(FILE *f, BoundaryInfo *what) {
-  char str[255];
-  if(!Get(f, str)) return 0;
-  what->A = (int)atoi(str);
-  if(!Get(f, str)) return 0;
-  what->B = (int)atoi(str);
-  if(!Get(f, str)) return 0;
-  what->BoundaryMarker = (int)atol(str);
-  if(!Get(f, str)) return 0;
-  what->Alpha = (int)atof(str);
-  return 1;
-}
-
-void Put(FILE *f, Point what) {
-  fprintf(f, "%g %g\n", what.x, what.y);
-}
-
-void Put(FILE *f, Element what) {
-  fprintf(f, "%d %d %d\n", what.n1 + 1, what.n2 + 1, what.n3 + 1);
-}
-
-void Put(FILE *f, BoundaryInfo what) {
-  fprintf(f, "%d %d %d\n", what.A + 1, what.B + 1, what.BoundaryMarker);
-}
-
-void Put(Point what) {
-  fprintf(stderr, "%g %g\n", what.x, what.y);
-}
-
-void Put(Element what) {
-  fprintf(stderr, "%d %d %d\n", what.n1 + 1, what.n2 + 1, what.n3 + 1);
-}
-
-void Put(BoundaryInfo what) {
-  fprintf(stderr, "%d %d %d\n", what.A + 1, what.B + 1, what.BoundaryMarker);
-}
-
 /*
- *   Errors & Warnings:
+ *   Error message:
  */
-
-void XgError(char *who, char *what) {
-  fprintf(stderr, "%s Error: %s\n", who, what);
-  exit(0);
-}
-
-void XgError(const char *who, const char *what) {
-  fprintf(stderr, "%s Error: %s\n", who, what);
-  exit(0);
-}
 
 void XgError(char *what) {
   fprintf(stderr, "Error: %s\n", what);
@@ -104,18 +30,6 @@ void XgError(char *what) {
 void XgError(const char *what) {
   fprintf(stderr, "Error: %s\n", what);
   exit(0);
-}
-
-void XgWarning(char *who, char *what) {
-  fprintf(stderr, "%s Warning: %s\n", who, what);
-}
-
-void XgWarning(char *what) {
-  fprintf(stderr, "Warning: %s\n", what);
-}
-
-void XgMessage(char *what) {
-  fprintf(stderr, "%s\n", what);
 }
 
 /**
@@ -128,16 +42,15 @@ void LineList::Change_last(
   {Last->A = a; Last->B = b;}
 }
 
-int LineList::Get_ptr(
- int *a, int *b
-) {
+bool LineList::Get_ptr(int &a, int &b) 
+{
   if(Ptr != NULL) {
-    *a = Ptr->A;
-    *b = Ptr->B;
+    a = Ptr->A;
+    b = Ptr->B;
     Ptr = Ptr->next;
-    return 1;
+    return true;
   }
-  else return 0;
+  else return false;
 }
 
 void LineList::Delete_list_of_lines() {
@@ -151,13 +64,13 @@ void LineList::Delete_list_of_lines() {
   First = Last = NULL;
 }
 
-int LineList::Is_there(int C) {
+bool LineList::Is_there(int C) {
   Box *P = First;
   while(P != NULL) {
-    if((P->A == C) || (P->B == C)) return 1;
+    if((P->A == C) || (P->B == C)) return true;
     P = P->next;
   }
-  return 0;
+  return false;
 }
 
 void LineList::Add(
@@ -192,9 +105,8 @@ void LineList::Delete_last() {
   }
 }
 
-int LineList::Delete(
- int a, int b
-) {
+bool LineList::Delete(int a, int b) 
+{
   Box *p = First, *l = NULL;
   while (p != NULL) {
     if ((p->A == a && p->B == b) || (p->A == b && p->B == a)) {
@@ -210,43 +122,42 @@ int LineList::Delete(
         }
       }
       delete p;
-      return 1;
+      return true;
     }
     else {
       l = p;
       p = p->next;
     }
   }
-  return 0;
+  return false;
 }
 
 /**
- **   struct BoundaryInfoList:
+ **   struct BoundaryEdgeList:
  **/
 
-int BoundaryInfoList::Get_ptr(BoundaryInfo *I) {
+bool BoundaryEdgeList::Get_ptr(BoundaryEdge &BE) {
   if(Ptr != NULL) {
-    *I = *Ptr;
+    BE = *Ptr;
     Ptr = Ptr->next;
-    return 1;
+    return true;
   }
-  else return 0;
+  else return false;
 }
 
-void BoundaryInfoList::Add(int a, 
- int b, int CompInd, int EdInd
-) {
+void BoundaryEdgeList::Add(int a, int b, int component_index, int marker, double alpha) 
+{
   if (Last == NULL) {
-    First = Last = new BoundaryInfo(a, b, CompInd, EdInd);
+    First = Last = new BoundaryEdge(a, b, component_index, marker, alpha);
   }
   else {
-    Last->next = new BoundaryInfo(a, b, CompInd, EdInd);
+    Last->next = new BoundaryEdge(a, b, component_index, marker, alpha);
     Last = Last->next;
   }
 }
 
-void BoundaryInfoList::Delete_last() {
-  BoundaryInfo *p = First;
+void BoundaryEdgeList::Delete_last() {
+  BoundaryEdge *p = First;
   if (p->next == NULL) {
     delete p;
     First = Last = NULL;
@@ -265,8 +176,8 @@ void BoundaryInfoList::Delete_last() {
   }
 }
 
-void BoundaryInfoList::Remove() {
-  BoundaryInfo *p = Ptr = First;
+void BoundaryEdgeList::Remove() {
+  BoundaryEdge *p = Ptr = First;
   while(p != NULL) {
     Ptr = Ptr->next;
     delete p;
@@ -288,26 +199,20 @@ void ElemList::Add(int a,
   else {
     Last->next = new ElemBox(a, b, c);
     Last = Last->next;
-    if(Last == NULL) {
-      XgError(
-       "ElemList",
-       "Not enough memory for triangles."
-      ); 
-    }
+    if(Last == NULL) XgError("ElemList::Add(): Not enough memory."); 
   }
 }
 
-int ElemList::Get(int *a, 
- int *b, int *c
-) {
+bool ElemList::Get(int &a, int &b, int &c) 
+{
   if(Ptr != NULL) {
-    *a = Ptr->E.n1;
-    *b = Ptr->E.n2;
-    *c = Ptr->E.n3;
+    a = Ptr->E.n1;
+    b = Ptr->E.n2;
+    c = Ptr->E.n3;
     Ptr = Ptr->next;
-    return 1;
+    return true;
   }
-  else return 0;
+  else return false;
 }
 
 void ElemList::Remove() {
@@ -325,27 +230,26 @@ void ElemList::Remove() {
  **   struct PointList:
  **/
 
-int PointList::Get(int i, 
- double *pos_x, double *pos_y
+bool PointList::Get(int i, double &pos_x, double &pos_y
 ) {
   PointBox *P = First;
   for(int j=0; j<i; j++) {
-    if(P == NULL) return 0;
+    if(P == NULL) return false;
     P = P->next;
   }
-  *pos_x = P->P.x;
-  *pos_y = P->P.y;
-  return 1;
+  pos_x = P->P.x;
+  pos_y = P->P.y;
+  return true;
 }
 
-int PointList::Get_ptr(Point *T) {
+bool PointList::Get_ptr(Point &T) {
   if(Ptr != NULL) {
-    T->x = Ptr->P.x;
-    T->y = Ptr->P.y;
+    T.x = Ptr->P.x;
+    T.y = Ptr->P.y;
     Ptr = Ptr->next; 
-    return 1;
+    return true;
   }
-  else return 0;
+  else return false;
 }
 
 void PointList::Add(Point P) {
@@ -353,9 +257,6 @@ void PointList::Add(Point P) {
 }
 
 void PointList::Add(double pos_x, double pos_y) {
-//  Put("PointList: adding point "); 
-//  Put(pos_x); Put(" "); 
-//  PutNl(pos_y);
   if (Last == NULL) {
     First = Last = new PointBox(pos_x, pos_y);
   }
@@ -379,77 +280,55 @@ Point PointList::Delete() {
 }
 
 /**
- **   struct Information:
+ **   struct Boundary:
  **/
 
-void Information::New_component() {
-//  PutNl("Info: adding new component.");
-  if(Last_component == NULL) {
-    First_component = Last_component = new Component();
-    if(First_component == NULL) {
-      XgError(
-       "struct Information",
-       "Not enough memory for new component." 
-      );
-    }
+void Boundary::Add_bdy_component() {
+  if(Last_bdy_component == NULL) {
+    First_bdy_component = Last_bdy_component = new BdyComponent();
+    if(First_bdy_component == NULL) 
+      XgError("Boundary::Add_bdy_component(): Not enough memory.");
   }
   else {
-    Component *help = Last_component;
-    Last_component = new Component();
-    help -> next = Last_component;
-    if(help -> next == NULL) {
-      XgError(
-       "struct Information",
-       "Not enough memory for new component." 
-      );
-    }
+    BdyComponent *help = Last_bdy_component;
+    Last_bdy_component = new BdyComponent();
+    help -> next = Last_bdy_component;
+    if(help -> next == NULL) 
+      XgError("Boundary::Add_bdy_component(): Not enough memory.");
   }
 }
 
-void Information::Add_edge(int marker, double x, double y, int subdiv, double alpha) 
+void Boundary::Add_bdy_segment(int marker, double x, double y, int subdiv, double alpha) 
 {
-  if(Last_component == NULL) {
-    First_component = Last_component = new Component();
-    if(First_component == NULL) {
-      XgError(
-       "struct Information",
-       "Not enough memory for new edge." 
-      );
-    }    
+  if(Last_bdy_component == NULL) {
+    First_bdy_component = Last_bdy_component = new BdyComponent();
+    if(First_bdy_component == NULL) 
+      XgError("Boundary::Add_bdy_segment(): Not enough memory.");    
   }
-  if(Last_component -> Last_edge == NULL) {
-    Last_component -> Last_edge = 
-    Last_component -> First_edge = new Edge(marker, x, y, subdiv, alpha);
-    if(Last_component -> Last_edge == NULL) {
-      XgError(
-       "struct Information",
-       "Not enough memory for new edge." 
-      );
-    } 
+  if(Last_bdy_component -> Last_edge == NULL) {
+    Last_bdy_component -> Last_edge = 
+    Last_bdy_component -> First_edge = new Edge(marker, x, y, subdiv, alpha);
+    if(Last_bdy_component -> Last_edge == NULL) 
+      XgError("Boundary::Add_bdy_segment(): Not enough memory.");    
   } 
   else {
-    Edge *help = Last_component -> Last_edge;
-    Last_component -> Last_edge = 
+    Edge *help = Last_bdy_component -> Last_edge;
+    Last_bdy_component -> Last_edge = 
     new Edge(marker, x, y, subdiv, alpha);
-    help -> next = Last_component -> Last_edge;
-    if(help -> next == NULL) {
-      XgError(
-       "struct Information",
-       "Not enough memory for new edge." 
-      );
-    }
+    help -> next = Last_bdy_component -> Last_edge;
+    if(help -> next == NULL) 
+      XgError("Boundary::Add_bdy_segment(): Not enough memory."); 
   }
 }
 
-LineList *Information::Create_list_of_lines() {
-  LineList *l = new LineList;
+LineList* Boundary::Create_list_of_lines() {
+  LineList* l = new LineList;
   int Count = 0, First_point_of_component = 0;
   int subdiv = 0;
 
-//  PutNl("\nCreating LineList:");
-  Component *Component_pointer = First_component;
-  while(Component_pointer != NULL) {
-    Edge *Edge_pointer = Component_pointer -> First_edge;  
+  BdyComponent *Bdy_component_pointer = First_bdy_component;
+  while(Bdy_component_pointer != NULL) {
+    Edge *Edge_pointer = Bdy_component_pointer -> First_edge;  
     First_point_of_component = Count;
     while(Edge_pointer != NULL) {
       subdiv = Edge_pointer -> subdiv;
@@ -460,17 +339,14 @@ LineList *Information::Create_list_of_lines() {
       Edge_pointer = Edge_pointer -> next;
     }
     l->Delete_last();
-//    PutNl("LineList: deleting last item.");
     l->Add(Count-1, First_point_of_component);
-//    Put("LineList: adding "); Put(Count-1); Put(" ");
-//    PutNl(First_point_of_component);
-    Component_pointer = Component_pointer -> next;
+    Bdy_component_pointer = Bdy_component_pointer -> next;
   }
   return l;
 }       
 
-PointList *Information::Create_list_of_points() {
-  PointList *l = new PointList;
+PointList* Boundary::Create_list_of_points() {
+  PointList* l = new PointList;
   Point 
    First_point_of_component(0, 0),
    First_point(0, 0), 
@@ -478,9 +354,9 @@ PointList *Information::Create_list_of_points() {
    P(0, 0);
   int subdiv;
 
-  Component *Component_pointer = First_component;
-  while(Component_pointer != NULL) {
-    Edge *Edge_pointer = Component_pointer -> First_edge;  
+  BdyComponent *Bdy_component_pointer = First_bdy_component;
+  while(Bdy_component_pointer != NULL) {
+    Edge *Edge_pointer = Bdy_component_pointer -> First_edge;  
     First_point_of_component = First_point = Edge_pointer->P;
     while(Edge_pointer->next != NULL) {
       subdiv = Edge_pointer -> subdiv;
@@ -495,22 +371,21 @@ PointList *Information::Create_list_of_points() {
     subdiv = Edge_pointer -> subdiv;
     P = (First_point_of_component - First_point)/subdiv;
     for(int i=0; i<subdiv; i++) l->Add(First_point + P*i);
-    Component_pointer = Component_pointer -> next;
+    Bdy_component_pointer = Bdy_component_pointer -> next;
   }
   return l;
 }       
 
-double Information::GiveBoundaryLength() {
+double Boundary::GiveBoundaryLength() {
   double length = 0;
   Point 
    First_point_of_component(0, 0),
    First_point(0, 0), 
    next_point(0, 0);
 
-//  Put("\nComputing boundary length:\n");
-  Component *Component_pointer = First_component;
-  while(Component_pointer != NULL) {
-    Edge *Edge_pointer = Component_pointer -> First_edge;  
+  BdyComponent *Bdy_component_pointer = First_bdy_component;
+  while(Bdy_component_pointer != NULL) {
+    Edge *Edge_pointer = Bdy_component_pointer -> First_edge;  
     First_point_of_component = First_point = Edge_pointer->P;
     while(Edge_pointer->next != NULL) {
       Edge_pointer = Edge_pointer->next;
@@ -519,50 +394,54 @@ double Information::GiveBoundaryLength() {
       First_point = next_point;
     }
     length += (First_point_of_component - First_point).abs();
-    Component_pointer = Component_pointer -> next;
+    Bdy_component_pointer = Bdy_component_pointer -> next;
   }
   return length;
 }       
 
-BoundaryInfoList *Information::CreateBoundaryInfo() {
-  BoundaryInfoList *l = new BoundaryInfoList;
-  int Count = 0,
-   First_point_of_component = 0;
-  int subdiv = 0, ComponentIndex = 0;
-  int Last_marker = 0;
+BoundaryEdgeList* Boundary::CreateBoundaryEdges() {
+  BoundaryEdgeList* bil = new BoundaryEdgeList;
+  int Count = 0, First_point_of_component = 0;
+  int subdiv = 0, component_index = 0;
+  int last_marker, last_subdiv;
+  double last_alpha;
 
-  //  Put("\nCreating BoundaryInfoList:\n");
-  Component *Component_pointer = First_component;
-  while(Component_pointer != NULL) {
-    Edge *Edge_pointer = Component_pointer -> First_edge;
+  BdyComponent *Bdy_component_pointer = First_bdy_component;
+  while(Bdy_component_pointer != NULL) {
+    Edge *Edge_pointer = Bdy_component_pointer -> First_edge;
     First_point_of_component = Count;
     while(Edge_pointer != NULL) {
       subdiv = Edge_pointer -> subdiv;
+      // Adding elementary boundary edges.
       for(int i=0; i<subdiv; i++) {
-        l->Add(
+        bil->Add(
             Count, Count + 1, 
-            ComponentIndex,
-            Edge_pointer -> marker
+            component_index,
+            Edge_pointer -> marker,
+            (Edge_pointer -> alpha) / subdiv
            );
         Count++;
       }
-      Last_marker = Edge_pointer -> marker;
+      last_marker = Edge_pointer -> marker;
+      last_alpha = Edge_pointer -> alpha;
+      last_subdiv = Edge_pointer -> subdiv;
       Edge_pointer = Edge_pointer -> next;
     }
-    l->Delete_last();
-    l->Add(
+    bil->Delete_last();
+    bil->Add(
         Count - 1, First_point_of_component,
-        ComponentIndex,
-        Last_marker
+        component_index,
+        last_marker,
+        last_alpha / last_subdiv
        );
-    Component_pointer = Component_pointer -> next;
-    ComponentIndex++;
+    Bdy_component_pointer = Bdy_component_pointer -> next;
+    component_index++;
   }
-  return l;
+  return bil;
 }       
 
-Information::~Information() {
-  Component *comp_ptr = First_component;
+Boundary::~Boundary() {
+  BdyComponent *comp_ptr = First_bdy_component;
   while (comp_ptr != NULL) {
     Edge *edge_ptr = comp_ptr -> First_edge;
     while(edge_ptr != NULL) {
@@ -570,11 +449,11 @@ Information::~Information() {
       edge_ptr = edge_ptr -> next;
       delete help_edge;
     }
-    Component *help_comp = comp_ptr;
+    BdyComponent *help_comp = comp_ptr;
     comp_ptr = comp_ptr -> next;
     delete help_comp;
   }
-  First_component = Last_component = NULL;
+  First_bdy_component = Last_bdy_component = NULL;
 }
 
 /**
@@ -609,7 +488,7 @@ Xgen::Xgen(bool nogui, int steps_to_take, bool overlay) {
 
 char* Xgen::XgGiveName() {
   char *c = (char*)malloc(255);
-  if(c == NULL) XgError("No free memory to allocate.");
+  if(c == NULL) XgError("Xgen::XgGiveName(): Not enough memory.");
   c[0] = '\0';
   strcpy(c, Name);
   return c;
@@ -639,20 +518,20 @@ long Xgen::XgGiveNelem() {
   return Nelem;
 }
 
-void Xgen::XgGiveLimits(Point *min, Point *max) {
-  min->x = Xmin;
-  min->y = Ymin;
-  max->x = Xmax;
-  max->y = Ymax;
+void Xgen::XgGiveLimits(Point &min, Point &max) {
+  min.x = Xmin;
+  min.y = Ymin;
+  max.x = Xmax;
+  max.y = Ymax;
 }
 
 void Xgen::XgInitPointList() {
   GoThroughPointsPtr = 0;
 }
 
-bool Xgen::XgGiveNextPoint(Point *p) {
+bool Xgen::XgGiveNextPoint(Point &p) {
   if(GoThroughPointsPtr < Npoin) {
-    *p = E[GoThroughPointsPtr++];
+    p = E[GoThroughPointsPtr++];
     return true;
   }
   else return false;
@@ -662,9 +541,9 @@ void Xgen::XgInitFreePointList() {
   RedrawFreePtr = Nbound;
 }
 
-bool Xgen::XgGiveNextFreePoint(Point *p) {
+bool Xgen::XgGiveNextFreePoint(Point &p) {
   if(RedrawFreePtr < Npoin) {
-    *p = E[RedrawFreePtr++];
+    p = E[RedrawFreePtr++];
     return true;
   }
   else return false;
@@ -674,22 +553,22 @@ void Xgen::XgInitBoundaryLineList() {
   L->Init_ptr();
 }
 
-bool Xgen::XgGiveNextBoundaryLine(Point *p, Point *q) {
+bool Xgen::XgGiveNextBoundaryLine(Point &p, Point &q) {
   int A, B;
-  if(L->Get_ptr(&A, &B)) {
-    *p = E[A];
-    *q = E[B];
+  if(L->Get_ptr(A, B)) {
+    p = E[A];
+    q = E[B];
     return true;
   }
   else return false;
 }
 
-void Xgen::XgInitBoundaryInfoList() {
+void Xgen::XgInitBoundaryEdgeList() {
   BIL->Init_ptr();
 }
 
-bool Xgen::XgGiveNextBoundaryInfo(BoundaryInfo *info) {
-  if(BIL->Get_ptr(info)) return true;
+bool Xgen::XgGiveNextBoundaryEdge(BoundaryEdge &edge_ptr) {
+  if(BIL->Get_ptr(edge_ptr)) return true;
   else return false;
 }
 
@@ -697,20 +576,19 @@ void Xgen::XgInitElementList() {
   ElemL->Init_ptr();
 }
 
-bool Xgen::XgGiveNextElement(Point *p, Point *q, Point *r) {
+bool Xgen::XgGiveNextElement(Point &p, Point &q, Point &r) {
   int A, B, C;
-  if(ElemL->Get(&A, &B, &C)) {
-    *p = E[A];
-    *q = E[B];
-    *r = E[C];
+  if(ElemL->Get(A, B, C)) {
+    p = E[A];
+    q = E[B];
+    r = E[C];
     return true;
   }
   else return false;
 }
 
-bool Xgen::XgGiveNextElement(Element *element) {
-  if(ElemL->Get(&(element->n1), 
-   &(element->n2), &(element->n3))) return true;
+bool Xgen::XgGiveNextElement(Element &element) {
+  if(ElemL->Get(element.n1, element.n2, element.n3)) return true;
   else return false;
 }
 
@@ -726,7 +604,7 @@ void Xgen::XgForgetGrid() {
 void Xgen::XgSetPointsRandom() {
   Npoin = First_Npoin;
   Nstore = First_Nstore;
-  if(Nbound > Npoin) XgError("Internal (1) in XgSetPointsRandom().");
+  if(Nbound > Npoin) XgError("Xgen::XgSetPointsRandom(): Internal (1).");
   Nfree = Npoin - Nbound;
 #ifdef RAND_MAX
   double Rand_max = RAND_MAX;
@@ -740,14 +618,14 @@ void Xgen::XgSetPointsRandom() {
         rand()*(Xmax - Xmin)/Rand_max + Xmin;
       E[i].y =
 	rand()*(Ymax - Ymin)/Rand_max + Ymin;
-    } while(!Is_inside(E + i));
+    } while(!Is_inside(E[i]));
   }
   printf("Domain filled with random points, %d grid points, %d interior.\n", Npoin, Nfree);
 }
 
-int odd(int i) {
-  if(i & 1) return 1;
-  else return 0;
+bool odd(int i) {
+  if(i & 1) return true;
+  else return false;
 }
 
 //points are equidistantly placed
@@ -770,15 +648,15 @@ void Xgen::XgSetPointsOverlay() {
       double fluct_y = rand()*0.1*H/Rand_max;
       P.x = Xmin + H/2 + H*j + 0.5*H*odd(i) + fluct_x;
       P.y = Ymin + (i+1)*H*sqrt(3)/2.0 + fluct_y;
-      if(Is_inside(&P)) {
+      if(Is_inside(P)) {
         if(Npoin >= First_Npoin + First_Nstore) 
-          XgError("not enough space for new points, increase the Nstore parameter."); 
+          XgError("Xgen::XgSetPointsOverlay(): Not enough space for new points, increase the Nstore parameter."); 
         E[Npoin++] = P;
       }
     }
   }      
 
-  if(Nbound > Npoin) XgError("Internal (1) in XgSetPointsOverlay().");
+  if(Nbound > Npoin) XgError("Xgen::XgSetPointsOverlay(): Internal (1).");
   Nfree = Npoin - Nbound;
   Nstore = First_Nstore + First_Npoin - Npoin;
   IterationPtr = Nbound;
@@ -789,7 +667,7 @@ void Xgen::XgSetPointsOverlay() {
 }
 
 void Xgen::XgOutput(FILE *f) {
-  BIL = Info.CreateBoundaryInfo();
+  BIL = Info.CreateBoundaryEdges();
   XgUserOutput(f);
   BIL -> Remove();
 } 
@@ -804,14 +682,14 @@ void Xgen::XgInputPoints(FILE *f, int *error, int *mem) {
 
   Point P, *E0;
   E0 = E + Nbound;
-  while(Get(f, &P)) if(Is_inside(&P)) {
+  while(Get(f, &P.x) && Get(f, &P.y)) if(Is_inside(P)) {
     Npoin++; Nstore--;
     if(Nstore == 0) break;
     *E0 = P;
     E0++;
   }
 
-  if(Nbound > Npoin) XgError("Internal (1) in XgInputPoints().");
+  if(Nbound > Npoin) XgError("Xgen::XgInputPoints: Internal (1).");
   Nfree = Npoin - Nbound;
   return;
 } 
@@ -821,7 +699,7 @@ void Xgen::XgOutputPoints(FILE *f) {
 
   Point P;
   GoThroughPointsPtr = Nbound;
-  while(XgGiveNextPoint(&P) == true) fprintf(f, "%g %g\n", P.x, P.y);
+  while(XgGiveNextPoint(P) == true) fprintf(f, "%g %g\n", P.x, P.y);
 } 
 
 void Undraw_point1(Point);
@@ -839,12 +717,12 @@ bool Xgen::XgNextTriangle(Point &p, Point &q, Point &r, bool &finished) {
     int was_deleted = 0;
     Point a, b;
     XgInitBoundaryLineList();                                           
-    while(XgGiveNextBoundaryLine(&a, &b) == true) {
+    while(XgGiveNextBoundaryLine(a, b) == true) {
       double h = sqrt((a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y));
       double dh = h/coeff;
       XgInitFreePointList();
       Point c;
-      while(XgGiveNextFreePoint(&c) == true) {
+      while(XgGiveNextFreePoint(c) == true) {
         Point ab, ab2, ab3;
         ab.x = 0.5*(a.x + b.x);
         ab.y = 0.5*(a.y + b.y);
@@ -869,7 +747,7 @@ bool Xgen::XgNextTriangle(Point &p, Point &q, Point &r, bool &finished) {
           was_deleted++;
           bool success = XgRemoveFreePoint(c);
           if(!success) 
-            XgError("internal while removing points that lie too close to boundary.");
+            XgError("Xgen::XgNextTriangle: Internal while removing points that lie too close to boundary.");
           //break;
         }
       }                
@@ -879,9 +757,9 @@ bool Xgen::XgNextTriangle(Point &p, Point &q, Point &r, bool &finished) {
       was_deleted, Npoin, Nfree);
   }
 
-  L->Get_last(&A, &B);
+  L->Get_last(A, B);
 
-  if(!Find_nearest_left(A, B, &C)) return false;
+  if(!Find_nearest_left(A, B, C)) return false;
 
   if (L->Delete(C, A)) {
     if (L->Delete(B, C)) L->Delete_last();
@@ -910,9 +788,6 @@ void Xgen::XgNextShift(Point *p_old, Point *p_new) {
   if(Npoin > Nbound) {
     if(IterationPtr >= Npoin) {
       IterationPtr = Nbound;
-//      { static int count = 0; 
-//        PutNl(count++);
-//      }
     }
     Point impuls = Get_impuls(IterationPtr);
     *p_old = E[IterationPtr];
@@ -923,7 +798,7 @@ void Xgen::XgNextShift(Point *p_old, Point *p_new) {
 
 bool Xgen::XgMouseAdd(Point p) {
   if(Nstore == 0) return false;
-  if(!Is_inside(&p)) return false;
+  if(!Is_inside(p)) return false;
   E[Npoin] = p;
   Nfree++;
   Npoin++;
@@ -969,7 +844,7 @@ bool Xgen::XgRemoveFreePoint(Point p) {
       wanted = j;
     }
   }
-  if(wanted == -1) XgError("internal in XgRemoveFreePoint.");
+  if(wanted == -1) XgError("Xgen::XgRemoveFreePoint(): Internal error.");
   for(int j = wanted; j< Npoin-1; j++) E[j] = E[j+1];
   Npoin--;
   Nfree--;
@@ -996,19 +871,19 @@ void Xgen::XgTimeDec() {
 
 void Xgen::XgSetTimestepConstant(double constant) {
   TimestepConst = constant;
-  if(TimestepConst <= 0) XgError("Invalid TimestepConst.");
-  if(TimestepConst >= 1) XgError("Invalid TimestepConst.");
+  if(TimestepConst <= 0) XgError("Xgen::XgSetTimestepConstant(): Invalid TimestepConst.");
+  if(TimestepConst >= 1) XgError("Xgen::XgSetTimestepConstant(): Invalid TimestepConst.");
 }
 
 Point Xgen::XgGivePoint(long pos_in_list) {
   if(pos_in_list < 0 || pos_in_list >= Npoin)
-    XgError("Invalid point index used.");
+    XgError("Xgen::XgGivePoint(): Invalid point index.");
   return E[pos_in_list];
 }
 
 Element Xgen::XgGiveElement(long pos_in_list) {
   if(pos_in_list < 0 || pos_in_list >= Nelem)
-    XgError("Invalid element index used.");
+    XgError("Xgen::XgGiveElement(): Invalid element index.");
   ElemBox *ptr = ElemL->First;
   for(long i=0; i<pos_in_list; i++) ptr = ptr->next;
   return ptr->E;
@@ -1019,95 +894,74 @@ Element Xgen::XgGiveElement(long pos_in_list) {
  **/
 
 void Xgen::XgInit(char *cfg_filename) {
-  if(cfg_filename == NULL) XgError("Empty filename detected in XgInit().\nVerify number of command line parameters.");
+  if(cfg_filename == NULL) XgError("Xgen::XgInit(): Empty filename.\nVerify the number of command line parameters.");
 
-  //initializing variables:
+  // Initializing variables.
   Nfree = Npoin = First_Npoin = Nelem = Nbound = 0;
   Xmax = Xmin = Ymax = Ymin = 0;
   H = Area = 0;
   E = NULL;
   L = new LineList;
   EL = new PointList;
-  BIL = new BoundaryInfoList;
+  BIL = new BoundaryEdgeList;
   ElemL = new ElemList;
   IterationPtr = 0;
   RedrawFreePtr = 0;
   GoThroughPointsPtr = 0;
   TimestepConst = 0.8;
 
-  //spatial dimension
+  // Spatial dimension.
   Dimension = 2;
 
-  //getting the application name from the cfg filename
+  // Extracting the application name from the cfg filename.
   char Help_str[50];
   strcpy(Help_str, cfg_filename);
   for(int i = 0; i<50; i++) {
     if((Help_str[i] == '\0') || (Help_str[i] == '.')) {
-      if((Name = (char*)malloc((i+1)*sizeof(char))) == NULL) {
-        XgError(
-         "class Xgen",
-         "Not enough memory for Name string." 
-        );
-      }
+      if((Name = (char*)malloc((i+1)*sizeof(char))) == NULL) 
+        XgError("Xgen::XgInit(): Not enough memory."); 
       Help_str[i] = '\0';
       strcpy(Name, Help_str);
       break;
     }
   }
 
-  //if user wouldn't redefine:
+  // Setting defaults.
   First_Nstore = Nstore = 10000;
   First_DeltaT = DeltaT = 1;
   H = 1;
 
-  //executing user-redefined function:
+  // Reading user data.
   FILE *f; 
-
   f = fopen(cfg_filename, "rb");
-  if(f == NULL) {
-    XgError(
-     "class Xgen",
-     "Couldn't open configuration file." 
-    );
-  }        
-
+  if(f == NULL) XgError("Couldn't open configuration file.");        
   XgReadData(f);
   fclose(f); 
 
-  //sanity checks
-  if(Nbound == 0) {
-    XgError(
-     "class Xgen",
-     "Bad configuration file: Nbound = 0." 
-    );
-  }
-  if(DeltaT <= 0) {
-    XgError(
-     "class Xgen",
-     "DeltaT not initialized in XgReadData()." 
-    );
-  }
+  // Sanity checks.
+  if(Nbound == 0) XgError("Bad configuration file: Nbound = 0.");
+  if(DeltaT <= 0) XgError("DeltaT not initialized in XgReadData().");
  
-  //storing DeltaT in case user would want to refresh it:
+  // Storing DeltaT in case user would want to refresh it.
   First_DeltaT = DeltaT;
 
-  //storing Nstore in case user would want to refresh it:
+  // Storing Nstore in case user would want to refresh it.
   First_Nstore = Nstore;
 
-  //average edge length
+  // Average boundary edge length.
   H = Info.GiveBoundaryLength()/Nbound;
 
-  //creating initial point list:
+  // Creating initial point list.
   EL = Info.Create_list_of_points();
 
-  //getting extrems of boundary coordinates:
+  // Calculating extrems of boundary coordinates.
   Point T;
   EL->Init_ptr();
   Xmin = EL->First->P.x;            
   Xmax = EL->First->P.x;            
   Ymin = EL->First->P.y;            
   Ymax = EL->First->P.y;            
-  while(EL->Get_ptr(&T)) {                      
+  while(EL->Get_ptr(T)) {                      
     if(T.x < Xmin) Xmin = T.x;
     if(T.x > Xmax) Xmax = T.x;
     if(T.y < Ymin) Ymin = T.y;
@@ -1115,28 +969,24 @@ void Xgen::XgInit(char *cfg_filename) {
   }
   EL->Init_ptr();
 
-  //getting the region area:
+  // Calculating the domain's area.
   L = Info.Create_list_of_lines();
   int A, B;
   double xa, xb, ya, yb;
   Area = 0;                                                
   L->Init_ptr();                                           
-  while(L->Get_ptr(&A, &B)) {                                    
-    EL->Get(A, &xa, &ya);                                  
-    EL->Get(B, &xb, &yb);                                  
+  while(L->Get_ptr(A, B)) {                                    
+    EL->Get(A, xa, ya);                                  
+    EL->Get(B, xb, yb);                                  
     Area += (ya + yb - 2*Ymin)*(xa - xb)/2;                
   }                          
   L->Init_ptr();                                           
 
-  //sanity checks
-  if(Area <= 0) {
-    XgError(
-     "class Xgen",
-     "Bad boundary (or its orientation) in XgReadData()." 
-    );
-  }
+  // Sanity checks.
+  if(Area <= 0)
+    XgError("Bad boundary (or its orientation) in XgReadData().");
 
-  //getting optimal number of free points
+  // Calculating optimal number of interior points.
   int help;
   help = (int)
   ((Area/(H*H*sqrt(3)/4) - 0.9*Nbound)/2 + 0.5);
@@ -1144,24 +994,16 @@ void Xgen::XgInit(char *cfg_filename) {
   else Nfree = help;
   Npoin = Nfree + Nbound;
 
-  //initializing iteration loop:
+  // Initializing iteration loop.
   IterationPtr = Nbound;
 
-  //storing Npoin incase user would want to refresh it:
+  // Storing Npoin incase user would want to refresh it.
   First_Npoin = Npoin;
 
-  //copying boundary points to the
-  //beginning of the point list:
+  // Copying boundary points to the beginning of the point list.
   E = (Point*)malloc((Npoin + Nstore)*sizeof(Point)); 
-  if(E == NULL) {                                          
-    XgError(
-     "class Xgen",
-     "Not enough memory for points." 
-    );                                             
-  }                                                      
-  else {                                                 
-    for(int i = 0; i<Nbound; i++) E[i] = EL->Delete();       
-  }
+  if(E == NULL) XgError("Not enough memory for points.");                                         
+  else for(int i = 0; i<Nbound; i++) E[i] = EL->Delete();
 
   // Setting initial points either randomly or 
   // using an equidistributed regular pattern.
@@ -1191,7 +1033,7 @@ void Xgen::XgInit(char *cfg_filename) {
     // Save the mesh to a file.
     FILE *f = fopen("out.mesh", "w");
     if (f == NULL) XgError("Failed to open mesh file for writing.");
-    BIL = Info.CreateBoundaryInfo();
+    BIL = Info.CreateBoundaryEdges();
     XgUserOutput(f);
     BIL -> Remove();
     fclose(f);
@@ -1208,32 +1050,13 @@ void Xgen::XgSetTimestep(double init_timestep) {
   DeltaT = init_timestep;
 }
 
-void Xgen::XgNewComponent() {
-  Info.New_component();
+void Xgen::XgAddBdyComponent() {
+  Info.Add_bdy_component();
 }
 
-void Xgen::XgAddEdge(int marker, double x, double y, int subdiv, double alpha) {
-  Info.Add_edge(marker, x, y, subdiv, alpha);
+void Xgen::XgAddBdySegment(int marker, double x, double y, int subdiv, double alpha) {
+  Info.Add_bdy_segment(marker, x, y, subdiv, alpha);
   Nbound += subdiv;
-}
-
-void Xgen::XgAddEdge(int marker, double x, double y, double alpha) {
-  int subdiv = 1;
-  Info.Add_edge(marker, x, y, subdiv, alpha);
-  Nbound++;
-}
-
-void Xgen::XgAddEdge(int marker, double x, double y, int subdiv) {
-  double alpha = 0;
-  Info.Add_edge(marker, x, y, subdiv, alpha);
-  Nbound++;
-}
-
-void Xgen::XgAddEdge(int marker, double x, double y) {
-  int subdiv = 1;
-  double alpha = 0;
-  Info.Add_edge(marker, x, y, subdiv, alpha);
-  Nbound++;
 }
 
 /*
@@ -1247,9 +1070,9 @@ double Xgen::XgCriterion(Point p, Point q, Point r) {
   return ((r-p)*(r-q))/((r-p).abs()*(r-q).abs());
 }
 
-int XgVertexInElem(int v, Element *e) {
-  if(v == e->n1 || v == e->n2 || v == e->n3) return 1;
-  else return 0;
+bool XgVertexInElem(int v, Element *e) {
+  if(v == e->n1 || v == e->n2 || v == e->n3) return true;
+  else return false;
 }
 
 void Xgen::XgUserOutput(FILE *f) {
@@ -1257,20 +1080,13 @@ void Xgen::XgUserOutput(FILE *f) {
   fprintf(f, "# Project: "); fprintf(f, "%s\n", XgGiveName());
   fprintf(f, "# Edges are positively oriented\n");
 
-  //PutNl(f, "* Number of points:");
-  //PutNl(f, XgGiveNpoin());
-  //PutNl(f, "* Number of elements:");
-  //PutNl(f, XgGiveNelem());
-  //PutNl(f, "* Boundary data number:");
-  //PutNl(f, XgGiveNbound());
-
   //writing list of mesh vertices
   //(two coordinates per line)
   fprintf(f, "\n# Vertices:\nvertices =\n{\n");
   Point P;
   XgInitPointList();
   int counter = 0;
-  while(XgGiveNextPoint(&P) == true) {
+  while(XgGiveNextPoint(P) == true) {
     counter++;
     if (counter < XgGiveNpoin()) fprintf(f, "  { %g, %g },\n", P.x, P.y);
     else fprintf(f, "  { %g, %g }\n", P.x, P.y);
@@ -1285,7 +1101,7 @@ void Xgen::XgUserOutput(FILE *f) {
   Element E;
   XgInitElementList();
   counter = 0;
-  while(XgGiveNextElement(&E) == true) {
+  while(XgGiveNextElement(E) == true) {
     counter++;
     if (counter < XgGiveNelem()) fprintf(f, "  { %d, %d , %d, 0 },\n", E.n1, E.n2, E.n3);
     else fprintf(f, "  { %d, %d , %d, 0 }\n", E.n1, E.n2, E.n3);
@@ -1297,42 +1113,15 @@ void Xgen::XgUserOutput(FILE *f) {
   //to the orientation of the boundary)
   fprintf(f, "\n# Boundary data:\n");  
   fprintf(f, "# (bdy_vrt_1 bdy_vrt_2 edge_index)\nboundaries =\n{\n");  
-  BoundaryInfo I;
-  XgInitBoundaryInfoList();
+  BoundaryEdge I;
+  XgInitBoundaryEdgeList();
   counter = 0;
-  while(XgGiveNextBoundaryInfo(&I) == true) {
+  while(XgGiveNextBoundaryEdge(I) == true) {
     counter++;
-    if (counter < XgGiveNbound()) fprintf(f, "  { %d, %d , %d},\n", I.A, I.B, I.BoundaryMarker);
-    else fprintf(f, "  { %d, %d , %d}\n", I.A, I.B, I.BoundaryMarker);
+    if (counter < XgGiveNbound()) fprintf(f, "  { %d, %d , %d},\n", I.A, I.B, I.marker);
+    else fprintf(f, "  { %d, %d , %d}\n", I.A, I.B, I.marker);
   }
   fprintf(f, "}\n");
-
-  /*
-  //writing boundary connectivity
-  //(to every boundary edge the index of the adjacent
-  //element and the index of the adjacent ghostcell)
-  PutNl(f, "\n* Boundary connectivity:");  
-  PutNl(f, "* (bdy_edge_nr adjacent_element_nr adjac_ghostcell_nr)");  
-  int nelem = XgGiveNelem();
-  BoundaryInfo Bin;
-  XgInitBoundaryInfoList();
-  int edge_count = 0;
-  while(XgGivenextBoundaryInfo(&Bin) == true) {
-    edge_count++;
-    Element Elem;
-    XgInitElementList();
-    int elem_count = 0;
-    while(XgGiveNextElement(&Elem) == true) {
-      elem_count++;
-      int vrt_A = Bin.A;
-      int vrt_B = Bin.B;
-      if(XgVertexInElem(vrt_A, &Elem) && XgVertexInElem(vrt_B, &Elem)) {
-        fprintf(f, "%ld %ld %ld\n", edge_count, elem_count, edge_count + nelem);
-        break;
-      }
-    }
-  }
-  */
 }
 
 /**
@@ -1371,54 +1160,51 @@ void Xgen::Shift(int i, Point Impuls) {
   Velocity = Impuls*DeltaT;
   E[i] += Velocity*(DeltaT*0.5);
 
-  if(!Is_inside(E + i)) E[i] = Old_pos;
+  if(!Is_inside(E[i])) E[i] = Old_pos;
 }
 
-int Xgen::Is_inside(Point *P) {
+bool Xgen::Is_inside(Point &P) {
   int Flag = 0;
   int a, b;
 
   L->Init_ptr();
-  while((L->Get_ptr(&a, &b)) == 1) {
+  while((L->Get_ptr(a, b)) == 1) {
     Point A = E[a];
     Point B = E[b];
-    if((A.x <= P->x) && (P->x < B.x)) {
-      if(Is_right(A, B, *P)) Flag +=1;
+    if((A.x <= P.x) && (P.x < B.x)) {
+      if(Is_right(A, B, P)) Flag +=1;
     }
-    if((A.x >= P->x) && (P->x > B.x)) {
-      if(Is_left(A, B, *P)) Flag -=1;
+    if((A.x >= P.x) && (P.x > B.x)) {
+      if(Is_left(A, B, P)) Flag -=1;
     }
   }
-  if(Flag == 0) return 0;
-  else return 1;
+  if(Flag == 0) return false;
+  else return true;
 }
 
-int Xgen::Intact(
- Point a, Point b, Point c, Point d
-) {
+bool Xgen::Intact(Point a, Point b, Point c, Point d) 
+{
   double p, t, s;
   Point f = b - a, e = d - c;
 
-  if(fabs(p = f.y*e.x - f.x*e.y) < XG_ZERO) return 0;
+  if(fabs(p = f.y*e.x - f.x*e.y) < XG_ZERO) return false;
 
   t = (e.y*a.x - e.x*a.y + c.y*e.x - c.x*e.y)/p;
   if(fabs(e.x) > XG_ZERO) s = (a.x + t*f.x - c.x)/e.x;
   else s = (a.y + t*f.y - c.y)/e.y;
-  if(t > XG_ZERO && t < 1 - XG_ZERO && s > XG_ZERO && s < 1 - XG_ZERO) 
-   return 1;
-  else return 0;
+  if(t > XG_ZERO && t < 1 - XG_ZERO && s > XG_ZERO && s < 1 - XG_ZERO) return true;
+  else return false;
 }
 
-int Xgen::Boundary_intact(
- Point a, Point b, Point c
-) {
+bool Xgen::Boundary_intact(Point a, Point b, Point c) 
+{
   int d, e;
   L -> Init_ptr();
-  while(L->Get_ptr(&d, &e)) {
+  while(L->Get_ptr(d, e)) {
     if(Intact(a, c, E[d], E[e]) ||
-     Intact(b, c, E[d], E[e])) return 1;
+     Intact(b, c, E[d], E[e])) return true;
   }
-  return 0;
+  return false;
 }
 
 double AreaSize(Point a, Point b) {
@@ -1442,10 +1228,8 @@ double TriaVolume(Point a, Point b, Point c) {
   return Distance(a, b, c)*AreaSize(b, c)/2;
 }
 
-int Xgen::Find_nearest_left(
- int A, int B, 
- int *wanted
-) {
+bool Xgen::Find_nearest_left(int A, int B, int &wanted) 
+{
   double m, Min;
   long int wanted0 = -1;
   Min = 1e50;
@@ -1454,7 +1238,7 @@ int Xgen::Find_nearest_left(
       if (Is_left(E[A], E[B], E[C])) {
         m = XgCriterion(E[A], E[B], E[C]);
         if(m < Min) {
-          if(Is_inside(E + C) || L->Is_there(C)) {
+          if(Is_inside(E[C]) || L->Is_there(C)) {
             if(!Boundary_intact(E[A], E[B], E[C])) {
               if(TriaVolume(E[A], E[B], E[C]) > XG_ZERO) {
   	        Min = m;
@@ -1466,29 +1250,29 @@ int Xgen::Find_nearest_left(
       }
     }
   }
-  if(wanted0 < 0) return 0;
-  *wanted = wanted0;
-  return 1;
+  if(wanted0 < 0) return false;
+  wanted = wanted0;
+  return true;
 }
 
-int Xgen::Is_left(Point A, Point B, Point C) {
+bool Xgen::Is_left(Point A, Point B, Point C) {
   double x1 = B.x - A.x,
 	 y1 = B.y - A.y,
 	 x2 = C.x - A.x,
 	 y2 = C.y - A.y;
 
-  if((x1*y2 - y1*x2) > 0) return 1;
-  else return 0;
+  if((x1*y2 - y1*x2) > 0) return true;
+  else return false;
 }
 
-int Xgen::Is_right(Point A, Point B, Point C) {
+bool Xgen::Is_right(Point A, Point B, Point C) {
   double x1 = B.x - A.x,
 	 y1 = B.y - A.y,
 	 x2 = C.x - A.x,
 	 y2 = C.y - A.y;
 
-  if((x1*y2 - y1*x2) < 0) return 1;
-  else return 0;
+  if((x1*y2 - y1*x2) < 0) return true;
+  else return false;
 }
 
 Xgen::~Xgen() {
@@ -1701,19 +1485,19 @@ void Show_normal_situation() {
   Point a, b;             
            
   RS.RPtr->XgInitBoundaryLineList();                                           
-  while(RS.RPtr->XgGiveNextBoundaryLine(&a, &b) == true) {
+  while(RS.RPtr->XgGiveNextBoundaryLine(a, b) == true) {
     Draw_point2(a);
     Draw_line(a, b);                       
   }                 
   RS.RPtr->XgInitFreePointList();
-  while(RS.RPtr->XgGiveNextFreePoint(&a) == true) Draw_point1(a);
+  while(RS.RPtr->XgGiveNextFreePoint(a) == true) Draw_point1(a);
 }
 
 void Redraw_boundary() {
   Point a, b;             
            
   RS.RPtr->XgInitBoundaryLineList();                                           
-  while(RS.RPtr->XgGiveNextBoundaryLine(&a, &b) == true) {
+  while(RS.RPtr->XgGiveNextBoundaryLine(a, b) == true) {
     Draw_point2(a);
     Draw_line(a, b);                       
   }                 
@@ -1722,7 +1506,7 @@ void Redraw_boundary() {
 void Redraw_grid() {                                           
   Point a, b, c;                                               
   RS.RPtr->XgInitElementList();   
-  while(RS.RPtr->XgGiveNextElement(&a, &b, &c) == true) {
+  while(RS.RPtr->XgGiveNextElement(a, b, c) == true) {
     Draw_line(a, b);
     Draw_line(a, c);
     Draw_line(b, c);   
@@ -4611,10 +4395,7 @@ static void BlackboardResize(
    XmNvalue, pos,
    NULL
   );
-//  Put(pos); Put("\n");
-//  Put(new_w); Put("\n");
-//  Put(size); Put("\n");
-//  Put("\n");
+
   if(RS.max_slidery != 0)
     division = new_h/(double)RS.max_slidery;
   RS.max_slidery = new_h;
@@ -4783,7 +4564,7 @@ void Info(
   int i = 0;
   Arg args[20];
   
-  XtSetArg(args[i], XtNtitle, "Information"); i++;
+  XtSetArg(args[i], XtNtitle, "Info"); i++;
   XtSetArg(args[i], XmNminWidth, 300); i++;
   XtSetArg(args[i], XmNminHeight, 230); i++;
   XtSetArg(args[i], XmNwidth, 300); i++;
@@ -5274,7 +5055,7 @@ void RSGetConfiguration(Xgen *User) {
 
   //initialization of area extrems:
   Point min, max;
-  User -> XgGiveLimits(&min, &max);
+  User -> XgGiveLimits(min, max);
   RS.AreaSize = max - min;
   RS.min = min;
   RS.max = max;

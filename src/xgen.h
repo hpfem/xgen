@@ -36,23 +36,20 @@ struct Element {
   } 
 };
 
-struct BoundaryInfo {
+struct BoundaryEdge {
   int A, B;            // Vertex indices.
-  double Alpha;        // 0 for straight edges, nonzero for circular arcs.
-  int ComponentIndex;  // Index of boundary component (closed loop).
-  int BoundaryMarker;  // Boundary marker.
-  BoundaryInfo *next;
+  double alpha;        // 0 for straight edges, nonzero for circular arcs.
+  int component_index; // Index of boundary component (closed loop).
+  int marker;          // Boundary marker.
+  BoundaryEdge *next;
 
-  BoundaryInfo() {}
-  BoundaryInfo(
-   int a, 
-   int b, 
-   int ci, 
-   int bm
-  ) {
+  BoundaryEdge() {}
+  BoundaryEdge(int a, int b, int ci, int m, double alp) 
+  {
     A = a; B = b; 
-    ComponentIndex = ci;
-    BoundaryMarker = bm;;
+    component_index = ci;
+    marker = m;
+    alpha = alp;
     next = NULL;
   }
 };
@@ -68,36 +65,26 @@ struct Box {
 };
 
 struct LineList {
-  Box
-   *First,
-   *Last,
-   *Ptr;
+  Box *First, *Last, *Ptr;
   LineList() {First = Last = Ptr = NULL;}
   void Init_ptr() {Ptr = First;}
-  int Get_ptr(int *a, int *b);
-  int Is_there(int C);
+  bool Get_ptr(int &a, int &b);
+  bool Is_there(int C);
   void Add(int a, int b);
-  int Delete(int a, int b);
+  bool Delete(int a, int b);
   void Delete_last();
   void Delete_list_of_lines();
-  void Get_last(
-   int *a, int *b
-  ) {*a = Last->A; *b = Last->B;}
+  void Get_last(int &a, int &b) {a = Last->A; b = Last->B;}
   void Change_last(int a, int b);
-  int Is_empty() {return (First == NULL) ? 1 : 0;}
+  bool Is_empty() {return (First == NULL) ? 1 : 0;}
 };
 
-struct BoundaryInfoList {
-  BoundaryInfo
-   *First,
-   *Last,
-   *Ptr;
-  BoundaryInfoList() {First = Last = Ptr = NULL;}
+struct BoundaryEdgeList {
+  BoundaryEdge *First, *Last, *Ptr;
+  BoundaryEdgeList() {First = Last = Ptr = NULL;}
   void Init_ptr() {Ptr = First;}
-  int Get_ptr(BoundaryInfo *I);
-  void Add(int a, int b, 
-   int CompInd, int EdInd
-  );
+  bool Get_ptr(BoundaryEdge &I);
+  void Add(int a, int b, int component_index, int marker, double alpha);
   void Delete_last();
   void Remove();
 };
@@ -105,27 +92,18 @@ struct BoundaryInfoList {
 struct ElemBox {
   Element E;
   ElemBox *next;
-  ElemBox(int a, 
-   int b, int c
-  ) {
+  ElemBox(int a, int b, int c) {
     E.n1 = a; E.n2 = b; E.n3 = c; 
     next = NULL;
   }
 };
 
 struct ElemList {
-  ElemBox
-   *First,
-   *Ptr,
-   *Last;
+  ElemBox *First, *Ptr, *Last;
   ElemList() {First = Last = Ptr = NULL;}
   void Init_ptr() {Ptr = First;}
-  int Get(int *a, 
-   int *b, int *c
-  );
-  void Add(int a, 
-   int b, int c
-  );
+  bool Get(int &a, int &b, int &c);
+  void Add(int a, int b, int c);
   void Remove();
   ~ElemList();
 };
@@ -139,14 +117,11 @@ struct PointBox {
 };
 
 struct PointList {
-  PointBox 
-   *First,
-   *Last,
-   *Ptr;
+  PointBox *First, *Last, *Ptr;
   PointList() {First = Last = Ptr = NULL;}
   void Init_ptr() {Ptr = First;}
-  int Get_ptr(Point *T);
-  int Get(int i, double *pos_x, double *pos_y);
+  bool Get_ptr(Point &T);
+  bool Get(int i, double &pos_x, double &pos_y);
   void Add(Point P);
   void Add(double pos_x, double pos_y);
   Point Delete();
@@ -168,54 +143,29 @@ struct Edge {
   }
 };
 
-struct Component {
-  Edge 
-   *First_edge,
-   *Last_edge;  
-  Component *next;
+struct BdyComponent {
+  Edge *First_edge, *Last_edge;  
+  BdyComponent *next;
 
-  Component() {
+  BdyComponent() {
     First_edge = Last_edge = NULL;
     next = NULL;
   }
 };
 
-struct Information {
-  Component 
-   *First_component, 
-   *Last_component;
-  Information() {
-    First_component = Last_component = NULL; 
-  }  
-  void New_component();
-  void Add_edge(int marker, double x, double y, int subdiv, double alpha);
+struct Boundary {
+  BdyComponent *First_bdy_component, *Last_bdy_component;
+  Boundary() {First_bdy_component = Last_bdy_component = NULL;}  
+  void Add_bdy_component();
+  void Add_bdy_segment(int marker, double x, double y, int subdiv, double alpha);
   LineList *Create_list_of_lines();
   PointList *Create_list_of_points();
-  BoundaryInfoList *CreateBoundaryInfo();
+  BoundaryEdgeList *CreateBoundaryEdges();
   double GiveBoundaryLength();
-  ~Information();
+  ~Boundary();
 };
 
-// Additional i/o functions:
-
-int Get(FILE *f, Point *what);
-int Get(FILE *f, Element *what);
-int Get(FILE *f, BoundaryInfo *what);
-void Put(FILE *f, Point what);
-void Put(FILE *f, Element what);
-void Put(FILE *f, BoundaryInfo what);
-void Put(Point what);
-void Put(Element what);
-void Put(BoundaryInfo what);
-void PutNl(FILE *f, Point what);
-void PutNl(FILE *f, Element what);
-void PutNl(FILE *f, BoundaryInfo what);
-void PutNl(Point what);
-void PutNl(Element what);
-void PutNl(BoundaryInfo what);
-
 // Macro sqr(..):
-
 # define sqr(a) ((a)*(a))
 
 // Errors & warnings:
@@ -239,18 +189,18 @@ class Xgen {
   long XgGiveNfree();
   long XgGiveNbound();
   long XgGiveNelem();
-  void XgGiveLimits(Point *min, Point *max);
+  void XgGiveLimits(Point &min, Point &max);
   void XgInitPointList();
-  bool XgGiveNextPoint(Point *p);
+  bool XgGiveNextPoint(Point &p);
   void XgInitFreePointList();
-  bool XgGiveNextFreePoint(Point *p);
+  bool XgGiveNextFreePoint(Point &p);
   void XgInitBoundaryLineList();
-  bool XgGiveNextBoundaryLine(Point *p, Point *q);
-  void XgInitBoundaryInfoList();
-  bool XgGiveNextBoundaryInfo(BoundaryInfo *info);
+  bool XgGiveNextBoundaryLine(Point &p, Point &q);
+  void XgInitBoundaryEdgeList();
+  bool XgGiveNextBoundaryEdge(BoundaryEdge &edge_ptr);
   void XgInitElementList();
-  bool XgGiveNextElement(Point *p, Point *q, Point *r);
-  bool XgGiveNextElement(Element *element);
+  bool XgGiveNextElement(Point &p, Point &q, Point &r);
+  bool XgGiveNextElement(Element &element);
   void XgForgetGrid();
   void XgSetPointsRandom();
   void XgSetPointsOverlay();
@@ -274,11 +224,8 @@ class Xgen {
   protected:
   void XgInit(char *cfg_filename);
   void XgSetTimestep(double init_timestep);
-  void XgNewComponent();
-  void XgAddEdge(int marker, double x, double y, int subdiv, double alpha);
-  void XgAddEdge(int marker, double x, double y, double alpha);  // subdiv = 1
-  void XgAddEdge(int marker, double x, double y, int subdiv);    // alpha = 0
-  void XgAddEdge(int marker, double x, double y);                // subdiv = 1, alpha = 0
+  void XgAddBdyComponent();
+  void XgAddBdySegment(int marker, double x, double y, int subdiv, double alpha);
   virtual void XgUserOutput(FILE *f);
   virtual double XgCriterion(Point a, Point b, Point c);
   virtual void XgReadData(FILE *f) = 0;
@@ -290,21 +237,20 @@ class Xgen {
   private:
   double H, DeltaT, TimestepConst; int Nstore;
   char *Name; int Dimension; int Nfree, 
-  Nbound, Npoin, Nelem; Point *E; Information Info; 
+  Nbound, Npoin, Nelem; Point *E; Boundary Info; 
   LineList *L; PointList *EL; ElemList *ElemL; 
-  BoundaryInfoList *BIL; double Xmax, Xmin, Ymax, 
+  BoundaryEdgeList *BIL; double Xmax, Xmin, Ymax, 
   Ymin, Area, First_DeltaT; int GoThroughPointsPtr, 
   RedrawFreePtr, IterationPtr, First_Npoin, First_Nstore;
   void Shift(int i, Point Impuls);
-  int Find_nearest_left(int A, int B, 
-  int *wanted);
+  bool Find_nearest_left(int A, int B, int &wanted);
   Point Get_impuls(int i);
   Point Give_impuls(int i, int j);
-  int Is_inside(Point *P);
-  int Boundary_intact(Point a, Point b, Point c);
-  int Intact(Point a, Point b, Point c, Point d);
-  int Is_left(Point A, Point B, Point C);
-  int Is_right(Point A, Point B, Point C);
+  bool Is_inside(Point &P);
+  bool Boundary_intact(Point a, Point b, Point c);
+  bool Intact(Point a, Point b, Point c, Point d);
+  bool Is_left(Point A, Point B, Point C);
+  bool Is_right(Point A, Point B, Point C);
 };
 
 // Calling Motif:

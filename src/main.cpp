@@ -27,10 +27,11 @@ class xsquare: public Xgen {
 void xsquare::XgReadData(FILE *f) {
   int N; 
   if(!Get(f, &N)) XgError("Couldn't read N.");
-  XgAddEdge(3, 0, 0, N);
-  XgAddEdge(2, 1, 0, N);
-  XgAddEdge(4, 1, 1, N);
-  XgAddEdge(1, 0, 1, N);
+  double alpha = 0;
+  XgAddBdySegment(3, 0, 0, N, alpha);
+  XgAddBdySegment(2, 1, 0, N, alpha);
+  XgAddBdySegment(4, 1, 1, N, alpha);
+  XgAddBdySegment(1, 0, 1, N, alpha);
 }
 
 /*
@@ -52,14 +53,15 @@ void xhole::XgReadData(FILE *f) {
   int N2 = (int)(2*M_PI*R + 0.5); 
 
   int N;
+  double alpha = 0;
   if(!Get(f, &N)) XgError("Couldn't read N.");
-  XgAddEdge(3, 0, 0, 2*N);
-  XgAddEdge(2, 1.5*N*H, 0, N);
-  XgAddEdge(4, 1.5*N*H, N*H, 2*N);
-  XgAddEdge(1, 0, N*H, N);
-  XgNewComponent();
+  XgAddBdySegment(3, 0, 0, 2*N, alpha);
+  XgAddBdySegment(2, 1.5*N*H, 0, N, alpha);
+  XgAddBdySegment(4, 1.5*N*H, N*H, 2*N, alpha);
+  XgAddBdySegment(1, 0, N*H, N, alpha);
+  XgAddBdyComponent();
   for(int i=0; i<N2; i++) {
-    XgAddEdge(5, 0.5*H*N + R*H*cos(i*2*M_PI/N2), 0.5*H*N - R*H*sin(i*2*M_PI/N2));
+    XgAddBdySegment(5, 0.5*H*N + R*H*cos(i*2*M_PI/N2), 0.5*H*N - R*H*sin(i*2*M_PI/N2), 1, alpha);
   }
 }
 
@@ -78,8 +80,9 @@ void xcirc::XgReadData(FILE *f) {
   if(!Get(f, &Rout)) XgError("Couldn't read Rout.");
   if(!Get(f, &Nout)) XgError("Couldn't read Nout.");
 
+  double alpha = 0;
   for(int i=0; i<Nout; i++) {
-    XgAddEdge(1, Rout*cos(i*2*M_PI/Nout), Rout*sin(i*2*M_PI/Nout));
+    XgAddBdySegment(1, Rout*cos(i*2*M_PI/Nout), Rout*sin(i*2*M_PI/Nout), 1, alpha);
   }
 
   double H = 2*M_PI*Rout/Nout;
@@ -88,9 +91,9 @@ void xcirc::XgReadData(FILE *f) {
   if(!Get(f, &Rins)) XgError("Couldn't read Rins.");
   int Nins = (int)(2*M_PI*Rins/H + 0.5);
 
-  XgNewComponent();
+  XgAddBdyComponent();
   for(int i=0; i<Nins; i++) {
-    XgAddEdge(2, Rins*cos(i*2*M_PI/Nins), -Rins*sin(i*2*M_PI/Nins));
+    XgAddBdySegment(2, Rins*cos(i*2*M_PI/Nins), -Rins*sin(i*2*M_PI/Nins), 1, alpha);
   }
 }
 
@@ -118,305 +121,16 @@ void xgamm::XgReadData(FILE *f) {
   double k = (0.125*N3*N3/X5 - 0.5*X5)*H;
   double r = k + X5*H;
 
-  XgAddEdge(3, 0, 0, N2);
+  double alpha = 0;
+  XgAddBdySegment(3, 0, 0, N2, alpha);
   for(int i=0; i<N3; i++) {
     double x = (i - 0.5*N3)*H;
-    XgAddEdge(3, (N2+i)*H, sqrt(r*r - x*x) - k);
+    XgAddBdySegment(3, (N2+i)*H, sqrt(r*r - x*x) - k, 1, alpha);
   }
-  XgAddEdge(3, (N2+N3)*H, 0, N4);
-  XgAddEdge(2, (N2+N3+N4)*H, 0, N1);
-  XgAddEdge(4, (N2+N3+N4)*H, N1*H, N2+N3+N4);
-  XgAddEdge(1, 0, N1*H, N1);
-}
-
-/*
- *   class xnozzle0:
- */
-
-class xnozzle0: public Xgen {
-  public:
-  xnozzle0(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
-  virtual void XgReadData(FILE *f);
-};
-
-void xnozzle0::XgReadData(FILE *f) {
-  double R1, R2, H1, H2, L, Dh;
-
-  if(!Get(f, &R1)) XgError("Couldn't read R1.");
-  if(!Get(f, &R2)) XgError("Couldn't read R2.");
-  if(!Get(f, &H1)) XgError("Couldn't read H1.");
-  if(!Get(f, &H2)) XgError("Couldn't read H2.");
-  if(!Get(f, &L)) XgError("Couldn't read L.");
-  if(!Get(f, &Dh)) XgError("Couldn't read Delta_h.");
-
-  int N1, N2, N3, N4, N5, N6;
-  N1 = (int)((R1 + R2 + L)/Dh + 0.5);
-  N2 = (int)((H2)/Dh + 0.5);
-  N3 = (int)(sqrt(L*L + (H1 - H2)*(H1 - H2))/Dh + 0.5);
-  N4 = (int)((M_PI*R2/2.0)/Dh + 0.5);
-  N5 = (int)((M_PI*R1/2.0)/Dh + 0.5);
-  N6 = (int)((H1 + R1 + R2)/Dh + 0.5);
-  
-  double S1_x = 0;
-  double S1_y = H1 + R2;
-  double S2_x = R1 + R2;
-  double S2_y = H1 + R2;
-
-  XgAddEdge(3, 0, 0, N1);
-  XgAddEdge(2, R1 + R2 + L, 0, N2);
-  XgAddEdge(4, R1 + R2 + L, H2, N3);
-  
-  double angle2 = M_PI/(2.0*(double)N4);
-  for(int i=0; i<N4; i++) {
-    double px, py;
-    px = S2_x - R2*sin(i*angle2);
-    py = S2_y - R2*cos(i*angle2);
-    XgAddEdge(4, px, py, 1);
-  }
- 
-  double angle1 = M_PI/(2.0*(double)N5);
-  for(int i=0; i<N5; i++) {
-    double px, py;
-    px = S1_x + R1*cos(i*angle1);
-    py = S1_y + R1*sin(i*angle1);
-    XgAddEdge(4, px, py, 1);
-  }
- 
-  XgAddEdge(1, 0, R1 + R2 + H1, N6);
-}
-
-/*
- *   class xduese:
- */
-
-class xduese: public Xgen {
-  public:
-  xduese(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
-  virtual void XgReadData(FILE *f);
-};
-
-void xduese::XgReadData(FILE *f) {
-  double R1, R2, H1, H2, L, Dh;
-  double D1, D2, D3, D4, D5;
-
-  if(!Get(f, &R1)) XgError("Couldn't read R1.");
-  if(!Get(f, &R2)) XgError("Couldn't read R2.");
-  if(!Get(f, &H1)) XgError("Couldn't read H1.");
-  if(!Get(f, &H2)) XgError("Couldn't read H2.");
-  if(!Get(f, &L)) XgError("Couldn't read L.");
-  if(!Get(f, &D1)) XgError("Couldn't read D1.");
-  if(!Get(f, &D2)) XgError("Couldn't read D2.");
-  if(!Get(f, &D3)) XgError("Couldn't read D3.");
-  if(!Get(f, &D4)) XgError("Couldn't read D4.");
-  if(!Get(f, &D5)) XgError("Couldn't read D5.");
-  if(!Get(f, &Dh)) XgError("Couldn't read Delta_h.");
-
-  int N2, N3, N4, N5, N6;
-  //N1 = (int)((R1 + R2 + L)/Dh + 0.5);
-  N2 = (int)((H2)/Dh + 0.5);
-  N3 = (int)(sqrt(L*L + (H1 - H2)*(H1 - H2))/Dh + 0.5);
-  N4 = (int)((M_PI*R2/2.0)/Dh + 0.5);
-  N5 = (int)((M_PI*R1/2.0)/Dh + 0.5);
-  N6 = (int)((H1 + R1 + R2)/Dh + 0.5);
-  
-  int ND1, ND2, ND3, ND4, ND5;
-  ND1 = (int)(D1/Dh + 0.5);
-  ND2 = (int)(D2/Dh + 0.5);
-  ND3 = (int)(D3/Dh + 0.5);
-  ND4 = (int)(D4/Dh + 0.5);
-  ND5 = (int)(D5/Dh + 0.5);
-
-  double S1_x = 0;
-  double S1_y = H1 + R2;
-  double S2_x = R1 + R2;
-  double S2_y = H1 + R2;
-
-  //spodek rezervoaru s tryskou
-  double angle1 = M_PI/(2.0*(double)N5);
-  for(int i=0; i<N5; i++) {
-    double px, py;
-    px = S1_x + R1*sin(i*angle1);
-    py = S1_y - 2*(H1 + R2) - R1*cos(i*angle1);
-    XgAddEdge(3, px, py, 1);
-  }
-
-  double angle2 = M_PI/(2.0*(double)N4);
-  for(int i=0; i<N4; i++) {
-    double px, py;
-    px = S2_x - R2*cos(i*angle2);
-    py = S2_y - 2*(H1 + R2) + R2*sin(i*angle2);
-    XgAddEdge(3, px, py, 1);
-  }
-
-  XgAddEdge(3, R1 + R2, -H1, N3);
-
-  //prostor za tryskou
-  XgAddEdge(3, R1 + R2 + L, -H2, ND1);
-  XgAddEdge(3, R1 + R2 + L, -H2 - D1, ND2);
-  XgAddEdge(3, R1 + R2 + L + D2, -H2 - D1, ND3);
-  //toto je hranice dolniho rezervoaru:
-  XgAddEdge(5, R1 + R2 + L + D2, -H2 - D1 - D3, ND4);
-  XgAddEdge(3, R1 + R2 + L + D2 + D4, -H2 - D1 - D3, ND3);
-  XgAddEdge(3, R1 + R2 + L + D2 + D4, -H2 - D1, ND5);
-  //toto je vystup na pravem konci oblasti
-  XgAddEdge(2, R1 + R2 + L + D2 + D4 + D5, -H2 - D1, 2*N2 + 2*ND1);
-  XgAddEdge(4, R1 + R2 + L + D2 + D4 + D5, H2 + D1, ND2 + ND4 + ND5);
-  XgAddEdge(4, R1 + R2 + L, +H2 + D1, ND1);
-
-  //vrsek rezervoaru s tryskou
-  XgAddEdge(4, R1 + R2 + L, H2, N3);
-  
-  for(int i=0; i<N4; i++) {
-    double px, py;
-    px = S2_x - R2*sin(i*angle2);
-    py = S2_y - R2*cos(i*angle2);
-    XgAddEdge(4, px, py, 1);
-  }
- 
-  for(int i=0; i<N5; i++) {
-    double px, py;
-    px = S1_x + R1*cos(i*angle1);
-    py = S1_y + R1*sin(i*angle1);
-    XgAddEdge(4, px, py, 1);
-  }
- 
-  XgAddEdge(1, 0, R1 + R2 + H1, 2*N6);
-}
-
-/*
- *   class xduese2:
- */
-
-class xduese2: public Xgen {
-  public:
-  xduese2(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
-  virtual void XgReadData(FILE *f);
-};
-
-void xduese2::XgReadData(FILE *f) {
-  double R1, R2, H1, H2, L, Dh;
-  double D1, D2, D3, D4, D5;
-
-  if(!Get(f, &R1)) XgError("Couldn't read R1.");
-  if(!Get(f, &R2)) XgError("Couldn't read R2.");
-  if(!Get(f, &H1)) XgError("Couldn't read H1.");
-  if(!Get(f, &H2)) XgError("Couldn't read H2.");
-  if(!Get(f, &L)) XgError("Couldn't read L.");
-  if(!Get(f, &D1)) XgError("Couldn't read D1.");
-  if(!Get(f, &D2)) XgError("Couldn't read D2.");
-  if(!Get(f, &D3)) XgError("Couldn't read D3.");
-  if(!Get(f, &D4)) XgError("Couldn't read D4.");
-  if(!Get(f, &D5)) XgError("Couldn't read D5.");
-  if(!Get(f, &Dh)) XgError("Couldn't read Delta_h.");
-
-  int N2, N3, N4, N5, N6;
-  //N1 = (int)((R1 + R2 + L)/Dh + 0.5);
-  N2 = (int)((H2)/Dh + 0.5);
-  N3 = (int)(sqrt(L*L + (H1 - H2)*(H1 - H2))/Dh + 0.5);
-  N4 = (int)((M_PI*R2/2.0)/Dh + 0.5);
-  N5 = (int)((M_PI*R1/2.0)/Dh + 0.5);
-  N6 = (int)((H1 + R1 + R2)/Dh + 0.5);
-  
-  int ND1, ND2, ND3, ND4, ND5;
-  ND1 = (int)(D1/Dh + 0.5);
-  ND2 = (int)(D2/Dh + 0.5);
-  ND3 = (int)(D3/Dh + 0.5);
-  ND4 = (int)((2*R1 + 2*R2 + D4)/Dh + 0.5);
-  ND5 = (int)(D5/Dh + 0.5);
-
-  double S1_x = 0;
-  double S1_y = H1 + R2;
-  double S2_x = R1 + R2;
-  double S2_y = H1 + R2;
-
-  //spodek rezervoaru s tryskou
-  double angle1 = M_PI/(2.0*(double)N5);
-  for(int i=0; i<N5; i++) {
-    double px, py;
-    px = S1_x + R1*sin(i*angle1);
-    py = S1_y - 2*(H1 + R2) - R1*cos(i*angle1);
-    XgAddEdge(3, px, py, 1);
-  }
-
-  double angle2 = M_PI/(2.0*(double)N4);
-  for(int i=0; i<N4; i++) {
-    double px, py;
-    px = S2_x - R2*cos(i*angle2);
-    py = S2_y - 2*(H1 + R2) + R2*sin(i*angle2);
-    XgAddEdge(3, px, py, 1);
-  }
-
-  XgAddEdge(3, R1 + R2, -H1, N3);
-
-  //prostor za tryskou
-  XgAddEdge(3, R1 + R2 + L, -H2, ND1);
-  XgAddEdge(3, R1 + R2 + L, -H2 - D1, ND2);
-  XgAddEdge(3, R1 + R2 + L + D2, -H2 - D1, ND3);
-
-  double S1_xa, S1_ya, S2_xa, S2_ya;
-
-  S2_xa =  R1 + L + D2;
-  S2_ya = -H2 - D1 - D3;
-
-  for(int i=0; i<N4; i++) {
-    double px, py;
-    px = S2_xa + R2*cos(i*angle2);
-    py = S2_ya - R2*sin(i*angle2);
-    XgAddEdge(3, px, py, 1);
-  }
-
-  S1_xa = S2_xa;
-  S1_ya = S2_ya - R1 - R2;
-
-  for(int i=0; i<N5; i++) {
-    double px, py;
-    px = S1_xa - R1*sin(i*angle1);
-    py = S1_ya + R1*cos(i*angle1);
-    XgAddEdge(3, px, py, 1);
-  }
-
-  //toto je hranice dolniho rezervoaru:
-  XgAddEdge(5, S1_xa - R1, S1_ya, ND4);
-
-  for(int i=0; i<N5; i++) {
-    double px, py;
-    px = S1_xa + 2*R2 + D4 + R1*cos(i*angle1);
-    py = S1_ya + R1*sin(i*angle1);
-    XgAddEdge(3, px, py, 1);
-  }
-
-  for(int i=0; i<N4; i++) {
-    double px, py;
-    px = S2_xa + 2*R2 + D4 - R2*sin(i*angle2);
-    py = S2_ya - R2*cos(i*angle2);
-    XgAddEdge(3, px, py, 1);
-  }
-
-  XgAddEdge(3, R1 + R2 + L + D2 + D4, -H2 - D1 - D3, ND3);
-  XgAddEdge(3, R1 + R2 + L + D2 + D4, -H2 - D1, ND5);
-  //toto je vystup na pravem konci oblasti
-  XgAddEdge(2, R1 + R2 + L + D2 + D4 + D5, -H2 - D1, 2*N2 + 2*ND1);
-  XgAddEdge(4, R1 + R2 + L + D2 + D4 + D5, H2 + D1, ND2 + ND4 + ND5);
-  XgAddEdge(4, R1 + R2 + L, +H2 + D1, ND1);
-
-  //vrsek rezervoaru s tryskou
-  XgAddEdge(4, R1 + R2 + L, H2, N3);
-  
-  for(int i=0; i<N4; i++) {
-    double px, py;
-    px = S2_x - R2*sin(i*angle2);
-    py = S2_y - R2*cos(i*angle2);
-    XgAddEdge(4, px, py, 1);
-  }
- 
-  for(int i=0; i<N5; i++) {
-    double px, py;
-    px = S1_x + R1*cos(i*angle1);
-    py = S1_y + R1*sin(i*angle1);
-    XgAddEdge(4, px, py, 1);
-  }
- 
-  XgAddEdge(1, 0, R1 + R2 + H1, 2*N6);
+  XgAddBdySegment(3, (N2+N3)*H, 0, N4, alpha);
+  XgAddBdySegment(2, (N2+N3+N4)*H, 0, N1, alpha);
+  XgAddBdySegment(4, (N2+N3+N4)*H, N1*H, N2+N3+N4, alpha);
+  XgAddBdySegment(1, 0, N1*H, N1, alpha);
 }
 
 /*
@@ -439,12 +153,13 @@ void xstep::XgReadData(FILE *f) {
   if(!Get(f, &N3)) XgError("Couldn't read N3.");
   if(!Get(f, &N4)) XgError("Couldn't read N4.");
 
-  XgAddEdge(3, 0, 0, N2);
-  XgAddEdge(3, N2*H, 0, N1-N4);
-  XgAddEdge(3, N2*H, (N1-N4)*H, N3);
-  XgAddEdge(2, (N2+N3)*H, (N1-N4)*H, N4);
-  XgAddEdge(4, (N2+N3)*H, N1*H, N2+N3);
-  XgAddEdge(1, 0, N1*H, N1);
+  double alpha = 0;
+  XgAddBdySegment(3, 0, 0, N2, alpha);
+  XgAddBdySegment(3, N2*H, 0, N1-N4, alpha);
+  XgAddBdySegment(3, N2*H, (N1-N4)*H, N3, alpha);
+  XgAddBdySegment(2, (N2+N3)*H, (N1-N4)*H, N4, alpha);
+  XgAddBdySegment(4, (N2+N3)*H, N1*H, N2+N3, alpha);
+  XgAddBdySegment(1, 0, N1*H, N1, alpha);
 }
 
 /*
@@ -458,7 +173,10 @@ class xlist: public Xgen {
   virtual void XgReadData(FILE *f);
 };
 
-// new component is introduced with '='
+// Boundary edges have the following format:
+// <marker start_x, start_y, subdivision, alpha>
+// where alpha = 0 for straight edges and alpha != 0 for curved.
+// New component is introduced with '='.
 void xlist::XgReadData(FILE *f) {
   int marker, subdiv, end = 0;
   Point a, b, c;
@@ -466,18 +184,20 @@ void xlist::XgReadData(FILE *f) {
   char test[20];
 
   while(Get(f, &marker)) {
-    if(!Get(f, &a)) XgError("Couldn't read a point.");
+    if(!Get(f, &a.x)) XgError("Couldn't read a point.");
+    if(!Get(f, &a.y)) XgError("Couldn't read a point.");
     if(!Get(f, &subdiv)) XgError("Couldn't read a subdivision number.");
     if(!Get(f, &alpha)) XgError("Couldn't read a boundary segment's angle.");
-    XgNewComponent();
-    XgAddEdge(marker, a.x, a.y, subdiv, alpha);
+    XgAddBdyComponent();
+    XgAddBdySegment(marker, a.x, a.y, subdiv, alpha);
     c = a;
     while(end = !Get(f, test), (end || test[0] == '=') ? 0:1) {
       marker = atoi(test);
-      if(!Get(f, &b)) XgError("Couldn't read a point.");
+      if(!Get(f, &b.x)) XgError("Couldn't read a point.");
+      if(!Get(f, &b.y)) XgError("Couldn't read a point.");
       if(!Get(f, &subdiv)) XgError("Couldn't read a subdivision number.");
       if(!Get(f, &alpha)) XgError("Couldn't read a boundary segment's angle.");
-      XgAddEdge(marker, b.x, b.y, subdiv, alpha); 
+      XgAddBdySegment(marker, b.x, b.y, subdiv, alpha); 
       a=b;
     } 
   }
@@ -528,14 +248,15 @@ void xnozzle::XgReadData(FILE *f) {
   int N2;
   N2 = (int)(N*Radius(x_right)/(x_right - x_left) + 0.5);
 
-  XgAddEdge(4, x_left, 0, N);
-  XgAddEdge(3, x_right, 0, N2);
+  double alpha = 0;
+  XgAddBdySegment(4, x_left, 0, N, alpha);
+  XgAddBdySegment(3, x_right, 0, N2, alpha);
   for(int i=N; i>0; i--) {
     double x;
     x = x_left + (double)i*(x_right - x_left)/N;
-    XgAddEdge(4, x, Radius(x), 1);
+    XgAddBdySegment(4, x, Radius(x), 1, alpha);
   }
-  XgAddEdge(1, x_left, Radius(x_left), N1);
+  XgAddBdySegment(1, x_left, Radius(x_left), N1, alpha);
 }
 
 class xspir2d: public Xgen {
@@ -556,24 +277,25 @@ void xspir2d::XgReadData(FILE *f) {
   Ny = Nx/4;
 
   //definition of the shape
+  double alpha = 0;
   double hx = (x_right - x_left)/Nx;
   double x;
   for(int i=0; i<Nx; i++) {
     x = x_left + i*hx;
     //printf("starting point %g, %g\n", x, 0.25*cos(M_PI*x));
-    XgAddEdge(3, x, 0.25*cos(M_PI*x), 1);
+    XgAddBdySegment(3, x, 0.25*cos(M_PI*x), 1, alpha);
   }
   x = x_right;
   //printf("starting point %g, %g\n", x, 0.25*cos(M_PI*x));
-  XgAddEdge(2, x_right, 0.25*cos(M_PI*x_right), Ny);
+  XgAddBdySegment(2, x_right, 0.25*cos(M_PI*x_right), Ny, alpha);
   for(int i=Nx; i>0; i--) {
     x = x_left + i*hx;
     //printf("starting point %g, %g\n", x, 0.25*cos(M_PI*x));
-    XgAddEdge(4, x, 0.25*cos(M_PI*x) + 0.5, 1);
+    XgAddBdySegment(4, x, 0.25*cos(M_PI*x) + 0.5, 1, alpha);
   }
   x = x_left;
   //printf("starting point %g, %g\n", x, 0.25*cos(M_PI*x) + 0.5);
-  XgAddEdge(1, x, 0.25*cos(M_PI*x) + 0.5, Ny);
+  XgAddBdySegment(1, x, 0.25*cos(M_PI*x) + 0.5, Ny, alpha);
 }
 
 double sep_low(double x) {
@@ -608,214 +330,28 @@ void xsep2d::XgReadData(FILE *f) {
   //definition of the shape
   double hx = (x_right - x_left)/Nx;
   double x;
+  double alpha = 0;
   for(int i=0; i<Nx; i++) {
     x = x_left + i*hx;
     //printf("starting point %g, %g\n", x, sep_low(x));
-    XgAddEdge(3, x, sep_low(x), 1);
+    XgAddBdySegment(3, x, sep_low(x), 1, alpha);
   }
   x = x_right;
   //printf("corner x_left low %g, %g\n", x_left, sep_low(x_left));
   //printf("corner x_left up%g, %g\n", x_left, sep_up(x_left));
   //printf("corner x_right low %g, %g\n", x_right, sep_low(x_right));
   //printf("corner x_right up  %g, %g\n", x_right, sep_up(x_right));
-  XgAddEdge(2, x_right, sep_low(x), Ny2);
+  XgAddBdySegment(2, x_right, sep_low(x), Ny2, alpha);
   for(int i=Nx; i>0; i--) {
     x = x_left + i*hx;
     //printf("starting point %g, %g\n", x, sep_up(x));
-    XgAddEdge(4, x, sep_up(x), 1);
+    XgAddBdySegment(4, x, sep_up(x), 1, alpha);
   }
   x = x_left;
   //printf("starting point %g, %g\n", x, sep_up(x));
-  XgAddEdge(1, x, sep_up(x), Ny1);
+  XgAddBdySegment(1, x, sep_up(x), Ny1, alpha);
 }
 
-/*
- *   class xmunich:
- */
-
-class xmunich: public Xgen {
-  public:
-  xmunich(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
-  virtual void XgReadData(FILE *f);
-};
-
-void xmunich::XgReadData(FILE *f) {
-  double R, L1, L2, H;
-  if(!Get(f, &R)) XgError("Couldn't read R.");
-  if(!Get(f, &L1)) XgError("Couldn't read L1.");
-  if(!Get(f, &L2)) XgError("Couldn't read L2.");
-  if(!Get(f, &H)) XgError("Couldn't read H.");
-
-  double L3 = L1/20;
-  double L4 = L2/10;
-
-  int N1 = (int)(L1/H);
-  int N2 = (int)(L2/H);
-  int NR = (int)(2*M_PI*R/H);
-  int N3 = (int)(L3/H);
-  int N4 = (int)(L4/H);
-  double L6 = 4*L4;
-  int N6 = (int)(L6/H);
-  int N5 = (int)(sqrt(L3*L3 + 0.25*(L2-L6)*(L2-L6))/H);
-
-  XgAddEdge(3, -L3, 0, N1 + N3);
-  XgAddEdge(2, L1, 0, N5);
-  XgAddEdge(2, L1+2*L3, 0.5*(L2-L6), N3);
-  XgAddEdge(2, L1+L3+2*L3, 0.5*(L2-L6), N6);
-  XgAddEdge(2, L1+L3+2*L3, 0.5*(L2-L6)+L6, N3);
-  XgAddEdge(2, L1+2*L3, 0.5*(L2-L6)+L6, N5);
-  XgAddEdge(4, L1, L2, N1 + N3);
-  XgAddEdge(4, -L3, L2, N4);
-  XgAddEdge(4, -L3, L2 - L4, N3);
-
-  XgAddEdge(1, 0, L2 - L4, N2 - 2* N4);
-  XgAddEdge(1, 0, L4, N3);
-  XgAddEdge(1, -L3, L4, N4);
-
-  XgNewComponent();
-  for(int i=0; i<NR; i++) {
-    XgAddEdge(5, 0.3*L1 + R*cos(i*2*M_PI/NR), 0.5*L2 - R*sin(i*2*M_PI/NR));
-  }
-  XgNewComponent();
-  for(int i=0; i<NR; i++) {
-    XgAddEdge(6, 0.6*L1 + R*cos(i*2*M_PI/NR), 0.5*L2 - R*sin(i*2*M_PI/NR));
-  }
-  XgNewComponent();
-  for(int i=0; i<NR; i++) {
-    XgAddEdge(6, 0.9*L1 + R*cos(i*2*M_PI/NR), 0.5*L2 - R*sin(i*2*M_PI/NR));
-  }
-
-  double D1 = L2/3;
-  double D2 = H;
-  int ND1 = (int)(D1/H);
-  int ND2 = (int)(D2/H);
-  
-  double alpha1 = M_PI/5.0;
-
-  double S1 = 0.15*L1;
-  double S2 = 0.25*L2;
-  XgNewComponent();
-  XgAddEdge(20, 
-            S1 - 0.5*D1*cos(alpha1) + 0.5*D2*sin(alpha1), 
-            S2 - 0.5*D1*sin(alpha1) - 0.5*D2*cos(alpha1), 
-            ND2);
-  XgAddEdge(20, 
-            S1 - 0.5*D1*cos(alpha1) - 0.5*D2*sin(alpha1), 
-            S2 - 0.5*D1*sin(alpha1) + 0.5*D2*cos(alpha1), 
-            ND1);
-  XgAddEdge(20, 
-            S1 + 0.5*D1*cos(alpha1) - 0.5*D2*sin(alpha1), 
-            S2 + 0.5*D1*sin(alpha1) + 0.5*D2*cos(alpha1), 
-            ND2);
-  XgAddEdge(20, 
-            S1 + 0.5*D1*cos(alpha1) + 0.5*D2*sin(alpha1), 
-            S2 + 0.5*D1*sin(alpha1) - 0.5*D2*cos(alpha1), 
-            ND1);
-  
-  S1 = 0.45*L1;
-  S2 = 0.25*L2;
-  XgNewComponent();
-  XgAddEdge(20, 
-            S1 - 0.5*D1*cos(alpha1) + 0.5*D2*sin(alpha1), 
-            S2 - 0.5*D1*sin(alpha1) - 0.5*D2*cos(alpha1), 
-            ND2);
-  XgAddEdge(20, 
-            S1 - 0.5*D1*cos(alpha1) - 0.5*D2*sin(alpha1), 
-            S2 - 0.5*D1*sin(alpha1) + 0.5*D2*cos(alpha1), 
-            ND1);
-  XgAddEdge(20, 
-            S1 + 0.5*D1*cos(alpha1) - 0.5*D2*sin(alpha1), 
-            S2 + 0.5*D1*sin(alpha1) + 0.5*D2*cos(alpha1), 
-            ND2);
-  XgAddEdge(20, 
-            S1 + 0.5*D1*cos(alpha1) + 0.5*D2*sin(alpha1), 
-            S2 + 0.5*D1*sin(alpha1) - 0.5*D2*cos(alpha1), 
-            ND1);
-  
-  S1 = 0.75*L1;
-  S2 = 0.25*L2;
-  XgNewComponent();
-  XgAddEdge(20, 
-            S1 - 0.5*D1*cos(alpha1) + 0.5*D2*sin(alpha1), 
-            S2 - 0.5*D1*sin(alpha1) - 0.5*D2*cos(alpha1), 
-            ND2);
-  XgAddEdge(20, 
-            S1 - 0.5*D1*cos(alpha1) - 0.5*D2*sin(alpha1), 
-            S2 - 0.5*D1*sin(alpha1) + 0.5*D2*cos(alpha1), 
-            ND1);
-  XgAddEdge(20, 
-            S1 + 0.5*D1*cos(alpha1) - 0.5*D2*sin(alpha1), 
-            S2 + 0.5*D1*sin(alpha1) + 0.5*D2*cos(alpha1), 
-            ND2);
-  XgAddEdge(20, 
-            S1 + 0.5*D1*cos(alpha1) + 0.5*D2*sin(alpha1), 
-            S2 + 0.5*D1*sin(alpha1) - 0.5*D2*cos(alpha1), 
-            ND1);
-  
-
-  double alpha2 = M_PI - alpha1;
-
-  S1 = 0.15*L1;
-  S2 = 0.75*L2;
-  XgNewComponent();
-  XgAddEdge(20, 
-            S1 - 0.5*D1*cos(alpha2) + 0.5*D2*sin(alpha2), 
-            S2 - 0.5*D1*sin(alpha2) - 0.5*D2*cos(alpha2), 
-            ND2);
-  XgAddEdge(20, 
-            S1 - 0.5*D1*cos(alpha2) - 0.5*D2*sin(alpha2), 
-            S2 - 0.5*D1*sin(alpha2) + 0.5*D2*cos(alpha2), 
-            ND1);
-  XgAddEdge(20, 
-            S1 + 0.5*D1*cos(alpha2) - 0.5*D2*sin(alpha2), 
-            S2 + 0.5*D1*sin(alpha2) + 0.5*D2*cos(alpha2), 
-            ND2);
-  XgAddEdge(20, 
-            S1 + 0.5*D1*cos(alpha2) + 0.5*D2*sin(alpha2), 
-            S2 + 0.5*D1*sin(alpha2) - 0.5*D2*cos(alpha2), 
-            ND1);
-
-  S1 = 0.45*L1;
-  S2 = 0.75*L2;
-  XgNewComponent();
-  XgAddEdge(20, 
-            S1 - 0.5*D1*cos(alpha2) + 0.5*D2*sin(alpha2), 
-            S2 - 0.5*D1*sin(alpha2) - 0.5*D2*cos(alpha2), 
-            ND2);
-  XgAddEdge(20, 
-            S1 - 0.5*D1*cos(alpha2) - 0.5*D2*sin(alpha2), 
-            S2 - 0.5*D1*sin(alpha2) + 0.5*D2*cos(alpha2), 
-            ND1);
-  XgAddEdge(20, 
-            S1 + 0.5*D1*cos(alpha2) - 0.5*D2*sin(alpha2), 
-            S2 + 0.5*D1*sin(alpha2) + 0.5*D2*cos(alpha2), 
-            ND2);
-  XgAddEdge(20, 
-            S1 + 0.5*D1*cos(alpha2) + 0.5*D2*sin(alpha2), 
-            S2 + 0.5*D1*sin(alpha2) - 0.5*D2*cos(alpha2), 
-            ND1);
-
-  S1 = 0.75*L1;
-  S2 = 0.75*L2;
-  XgNewComponent();
-  XgAddEdge(20, 
-            S1 - 0.5*D1*cos(alpha2) + 0.5*D2*sin(alpha2), 
-            S2 - 0.5*D1*sin(alpha2) - 0.5*D2*cos(alpha2), 
-            ND2);
-  XgAddEdge(20, 
-            S1 - 0.5*D1*cos(alpha2) - 0.5*D2*sin(alpha2), 
-            S2 - 0.5*D1*sin(alpha2) + 0.5*D2*cos(alpha2), 
-            ND1);
-  XgAddEdge(20, 
-            S1 + 0.5*D1*cos(alpha2) - 0.5*D2*sin(alpha2), 
-            S2 + 0.5*D1*sin(alpha2) + 0.5*D2*cos(alpha2), 
-            ND2);
-  XgAddEdge(20, 
-            S1 + 0.5*D1*cos(alpha2) + 0.5*D2*sin(alpha2), 
-            S2 + 0.5*D1*sin(alpha2) - 0.5*D2*cos(alpha2), 
-            ND1);
-
-}
 /*
  *   class xsquare_circ:
  */
@@ -842,15 +378,16 @@ void xsquare_circ::XgReadData(FILE *f) {
   double h = 2*M_PI*R / N;
   int NA = (int) (A / h + 0.5);
   int NB = (int) (B / h + 0.5);
-  XgAddEdge(1, 0, 0, NA);
-  XgAddEdge(2, A, 0, NB);
-  XgAddEdge(3, A, B, NA);
-  XgAddEdge(4, 0, B, NB);
+  double alpha = 0;
+  XgAddBdySegment(1, 0, 0, NA, alpha);
+  XgAddBdySegment(2, A, 0, NB, alpha);
+  XgAddBdySegment(3, A, B, NA, alpha);
+  XgAddBdySegment(4, 0, B, NB, alpha);
 
-  XgNewComponent();
+  XgAddBdyComponent();
   for(int i = 0; i < N; i++) {
-    XgAddEdge(5, S1 + R * cos(i*2*M_PI/N), 
-                 S2 - R * sin(i*2*M_PI/N));
+    XgAddBdySegment(5, S1 + R * cos(i*2*M_PI/N), 
+		    S2 - R * sin(i*2*M_PI/N), 1, alpha);
   }
 
 }
@@ -930,18 +467,6 @@ main(int argc, char *argv[]) {
     xlist X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
-  if(!strcmp(argv[1], "xduese")) {
-    xduese X(argv[2], nogui, nsteps, overlay);
-    XgMainLoop(&X, argc, argv);
-  }
-  if(!strcmp(argv[1], "xduese2")) {
-    xduese2 X(argv[2], nogui, nsteps, overlay);
-    XgMainLoop(&X, argc, argv);
-  }
-  if(!strcmp(argv[1], "xnozzle0")) {
-    xnozzle0 X(argv[2], nogui, nsteps, overlay);
-    XgMainLoop(&X, argc, argv);
-  }
   if(!strcmp(argv[1], "xnozzle")) {
     xnozzle X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
@@ -952,10 +477,6 @@ main(int argc, char *argv[]) {
   }
   if(!strcmp(argv[1], "xsep2d")) {
     xsep2d X(argv[2], nogui, nsteps, overlay);
-    XgMainLoop(&X, argc, argv);
-  }
-  if(!strcmp(argv[1], "xmunich")) {
-    xmunich X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   if(!strcmp(argv[1], "xsquare_circ")) {
