@@ -28,10 +28,10 @@ void xsquare::XgReadData(FILE *f) {
   int N; 
   if(!Get(f, &N)) XgError("Couldn't read N.");
   double alpha = 0;
-  XgAddBdySegment(3, 0, 0, N, alpha);
-  XgAddBdySegment(2, 1, 0, N, alpha);
-  XgAddBdySegment(4, 1, 1, N, alpha);
-  XgAddBdySegment(1, 0, 1, N, alpha);
+  XgAddBoundarySegment(3, 0, 0, N, alpha);
+  XgAddBoundarySegment(2, 1, 0, N, alpha);
+  XgAddBoundarySegment(4, 1, 1, N, alpha);
+  XgAddBoundarySegment(1, 0, 1, N, alpha);
 }
 
 /*
@@ -55,13 +55,13 @@ void xhole::XgReadData(FILE *f) {
   int N;
   double alpha = 0;
   if(!Get(f, &N)) XgError("Couldn't read N.");
-  XgAddBdySegment(3, 0, 0, 2*N, alpha);
-  XgAddBdySegment(2, 1.5*N*H, 0, N, alpha);
-  XgAddBdySegment(4, 1.5*N*H, N*H, 2*N, alpha);
-  XgAddBdySegment(1, 0, N*H, N, alpha);
-  XgAddBdyComponent();
+  XgAddBoundarySegment(3, 0, 0, 2*N, alpha);
+  XgAddBoundarySegment(2, 1.5*N*H, 0, N, alpha);
+  XgAddBoundarySegment(4, 1.5*N*H, N*H, 2*N, alpha);
+  XgAddBoundarySegment(1, 0, N*H, N, alpha);
+  XgCreateNewBoundaryComponent();
   for(int i=0; i<N2; i++) {
-    XgAddBdySegment(5, 0.5*H*N + R*H*cos(i*2*M_PI/N2), 0.5*H*N - R*H*sin(i*2*M_PI/N2), 1, alpha);
+    XgAddBoundarySegment(5, 0.5*H*N + R*H*cos(i*2*M_PI/N2), 0.5*H*N - R*H*sin(i*2*M_PI/N2), 1, alpha);
   }
 }
 
@@ -82,7 +82,7 @@ void xcirc::XgReadData(FILE *f) {
 
   double alpha = 0;
   for(int i=0; i<Nout; i++) {
-    XgAddBdySegment(1, Rout*cos(i*2*M_PI/Nout), Rout*sin(i*2*M_PI/Nout), 1, alpha);
+    XgAddBoundarySegment(1, Rout*cos(i*2*M_PI/Nout), Rout*sin(i*2*M_PI/Nout), 1, alpha);
   }
 
   double H = 2*M_PI*Rout/Nout;
@@ -91,9 +91,9 @@ void xcirc::XgReadData(FILE *f) {
   if(!Get(f, &Rins)) XgError("Couldn't read Rins.");
   int Nins = (int)(2*M_PI*Rins/H + 0.5);
 
-  XgAddBdyComponent();
+  XgCreateNewBoundaryComponent();
   for(int i=0; i<Nins; i++) {
-    XgAddBdySegment(2, Rins*cos(i*2*M_PI/Nins), -Rins*sin(i*2*M_PI/Nins), 1, alpha);
+    XgAddBoundarySegment(2, Rins*cos(i*2*M_PI/Nins), -Rins*sin(i*2*M_PI/Nins), 1, alpha);
   }
 }
 
@@ -122,15 +122,15 @@ void xgamm::XgReadData(FILE *f) {
   double r = k + X5*H;
 
   double alpha = 0;
-  XgAddBdySegment(3, 0, 0, N2, alpha);
+  XgAddBoundarySegment(3, 0, 0, N2, alpha);
   for(int i=0; i<N3; i++) {
     double x = (i - 0.5*N3)*H;
-    XgAddBdySegment(3, (N2+i)*H, sqrt(r*r - x*x) - k, 1, alpha);
+    XgAddBoundarySegment(3, (N2+i)*H, sqrt(r*r - x*x) - k, 1, alpha);
   }
-  XgAddBdySegment(3, (N2+N3)*H, 0, N4, alpha);
-  XgAddBdySegment(2, (N2+N3+N4)*H, 0, N1, alpha);
-  XgAddBdySegment(4, (N2+N3+N4)*H, N1*H, N2+N3+N4, alpha);
-  XgAddBdySegment(1, 0, N1*H, N1, alpha);
+  XgAddBoundarySegment(3, (N2+N3)*H, 0, N4, alpha);
+  XgAddBoundarySegment(2, (N2+N3+N4)*H, 0, N1, alpha);
+  XgAddBoundarySegment(4, (N2+N3+N4)*H, N1*H, N2+N3+N4, alpha);
+  XgAddBoundarySegment(1, 0, N1*H, N1, alpha);
 }
 
 /*
@@ -154,12 +154,12 @@ void xstep::XgReadData(FILE *f) {
   if(!Get(f, &N4)) XgError("Couldn't read N4.");
 
   double alpha = 0;
-  XgAddBdySegment(3, 0, 0, N2, alpha);
-  XgAddBdySegment(3, N2*H, 0, N1-N4, alpha);
-  XgAddBdySegment(3, N2*H, (N1-N4)*H, N3, alpha);
-  XgAddBdySegment(2, (N2+N3)*H, (N1-N4)*H, N4, alpha);
-  XgAddBdySegment(4, (N2+N3)*H, N1*H, N2+N3, alpha);
-  XgAddBdySegment(1, 0, N1*H, N1, alpha);
+  XgAddBoundarySegment(3, 0, 0, N2, alpha);
+  XgAddBoundarySegment(3, N2*H, 0, N1-N4, alpha);
+  XgAddBoundarySegment(3, N2*H, (N1-N4)*H, N3, alpha);
+  XgAddBoundarySegment(2, (N2+N3)*H, (N1-N4)*H, N4, alpha);
+  XgAddBoundarySegment(4, (N2+N3)*H, N1*H, N2+N3, alpha);
+  XgAddBoundarySegment(1, 0, N1*H, N1, alpha);
 }
 
 /*
@@ -188,8 +188,8 @@ void xlist::XgReadData(FILE *f) {
     if(!Get(f, &a.y)) XgError("Couldn't read a point.");
     if(!Get(f, &subdiv)) XgError("Couldn't read a subdivision number.");
     if(!Get(f, &alpha)) XgError("Couldn't read a boundary segment's angle.");
-    XgAddBdyComponent();
-    XgAddBdySegment(marker, a.x, a.y, subdiv, alpha);
+    XgCreateNewBoundaryComponent();
+    XgAddBoundarySegment(marker, a.x, a.y, subdiv, alpha);
     c = a;
     while(end = !Get(f, test), (end || test[0] == '=') ? 0:1) {
       marker = atoi(test);
@@ -197,7 +197,7 @@ void xlist::XgReadData(FILE *f) {
       if(!Get(f, &b.y)) XgError("Couldn't read a point.");
       if(!Get(f, &subdiv)) XgError("Couldn't read a subdivision number.");
       if(!Get(f, &alpha)) XgError("Couldn't read a boundary segment's angle.");
-      XgAddBdySegment(marker, b.x, b.y, subdiv, alpha); 
+      XgAddBoundarySegment(marker, b.x, b.y, subdiv, alpha); 
       a=b;
     } 
   }
@@ -249,14 +249,14 @@ void xnozzle::XgReadData(FILE *f) {
   N2 = (int)(N*Radius(x_right)/(x_right - x_left) + 0.5);
 
   double alpha = 0;
-  XgAddBdySegment(4, x_left, 0, N, alpha);
-  XgAddBdySegment(3, x_right, 0, N2, alpha);
+  XgAddBoundarySegment(4, x_left, 0, N, alpha);
+  XgAddBoundarySegment(3, x_right, 0, N2, alpha);
   for(int i=N; i>0; i--) {
     double x;
     x = x_left + (double)i*(x_right - x_left)/N;
-    XgAddBdySegment(4, x, Radius(x), 1, alpha);
+    XgAddBoundarySegment(4, x, Radius(x), 1, alpha);
   }
-  XgAddBdySegment(1, x_left, Radius(x_left), N1, alpha);
+  XgAddBoundarySegment(1, x_left, Radius(x_left), N1, alpha);
 }
 
 class xspir2d: public Xgen {
@@ -283,19 +283,19 @@ void xspir2d::XgReadData(FILE *f) {
   for(int i=0; i<Nx; i++) {
     x = x_left + i*hx;
     //printf("starting point %g, %g\n", x, 0.25*cos(M_PI*x));
-    XgAddBdySegment(3, x, 0.25*cos(M_PI*x), 1, alpha);
+    XgAddBoundarySegment(3, x, 0.25*cos(M_PI*x), 1, alpha);
   }
   x = x_right;
   //printf("starting point %g, %g\n", x, 0.25*cos(M_PI*x));
-  XgAddBdySegment(2, x_right, 0.25*cos(M_PI*x_right), Ny, alpha);
+  XgAddBoundarySegment(2, x_right, 0.25*cos(M_PI*x_right), Ny, alpha);
   for(int i=Nx; i>0; i--) {
     x = x_left + i*hx;
     //printf("starting point %g, %g\n", x, 0.25*cos(M_PI*x));
-    XgAddBdySegment(4, x, 0.25*cos(M_PI*x) + 0.5, 1, alpha);
+    XgAddBoundarySegment(4, x, 0.25*cos(M_PI*x) + 0.5, 1, alpha);
   }
   x = x_left;
   //printf("starting point %g, %g\n", x, 0.25*cos(M_PI*x) + 0.5);
-  XgAddBdySegment(1, x, 0.25*cos(M_PI*x) + 0.5, Ny, alpha);
+  XgAddBoundarySegment(1, x, 0.25*cos(M_PI*x) + 0.5, Ny, alpha);
 }
 
 double sep_low(double x) {
@@ -334,22 +334,22 @@ void xsep2d::XgReadData(FILE *f) {
   for(int i=0; i<Nx; i++) {
     x = x_left + i*hx;
     //printf("starting point %g, %g\n", x, sep_low(x));
-    XgAddBdySegment(3, x, sep_low(x), 1, alpha);
+    XgAddBoundarySegment(3, x, sep_low(x), 1, alpha);
   }
   x = x_right;
   //printf("corner x_left low %g, %g\n", x_left, sep_low(x_left));
   //printf("corner x_left up%g, %g\n", x_left, sep_up(x_left));
   //printf("corner x_right low %g, %g\n", x_right, sep_low(x_right));
   //printf("corner x_right up  %g, %g\n", x_right, sep_up(x_right));
-  XgAddBdySegment(2, x_right, sep_low(x), Ny2, alpha);
+  XgAddBoundarySegment(2, x_right, sep_low(x), Ny2, alpha);
   for(int i=Nx; i>0; i--) {
     x = x_left + i*hx;
     //printf("starting point %g, %g\n", x, sep_up(x));
-    XgAddBdySegment(4, x, sep_up(x), 1, alpha);
+    XgAddBoundarySegment(4, x, sep_up(x), 1, alpha);
   }
   x = x_left;
   //printf("starting point %g, %g\n", x, sep_up(x));
-  XgAddBdySegment(1, x, sep_up(x), Ny1, alpha);
+  XgAddBoundarySegment(1, x, sep_up(x), Ny1, alpha);
 }
 
 /*
@@ -379,14 +379,14 @@ void xsquare_circ::XgReadData(FILE *f) {
   int NA = (int) (A / h + 0.5);
   int NB = (int) (B / h + 0.5);
   double alpha = 0;
-  XgAddBdySegment(1, 0, 0, NA, alpha);
-  XgAddBdySegment(2, A, 0, NB, alpha);
-  XgAddBdySegment(3, A, B, NA, alpha);
-  XgAddBdySegment(4, 0, B, NB, alpha);
+  XgAddBoundarySegment(1, 0, 0, NA, alpha);
+  XgAddBoundarySegment(2, A, 0, NB, alpha);
+  XgAddBoundarySegment(3, A, B, NA, alpha);
+  XgAddBoundarySegment(4, 0, B, NB, alpha);
 
-  XgAddBdyComponent();
+  XgCreateNewBoundaryComponent();
   for(int i = 0; i < N; i++) {
-    XgAddBdySegment(5, S1 + R * cos(i*2*M_PI/N), 
+    XgAddBoundarySegment(5, S1 + R * cos(i*2*M_PI/N), 
 		    S2 - R * sin(i*2*M_PI/N), 1, alpha);
   }
 

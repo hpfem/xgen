@@ -2,8 +2,6 @@
 # include <stdio.h>
 # include <math.h>
 
-// Public types:
-
 struct Point {
   double x, y;
 
@@ -36,6 +34,22 @@ struct Element {
   } 
 };
 
+struct BoundarySegment {
+  Point P;             // Starting point.
+  int subdiv;          // Equidistant subdivision.
+  double alpha;        // 0 for straight edges, nonzero for circular arcs.
+  int marker;          // Boundary marker.
+  BoundarySegment *next;
+  BoundarySegment(int m, double x, double y, int subdivision, double alp) 
+  {
+    marker = m;
+    P.x = x;
+    P.y = y;
+    subdiv = subdivision;
+    alpha = alp;
+    next = NULL;
+  }
+};
 
 struct BoundaryEdge {
   int A, B;            // Vertex indices.
@@ -43,8 +57,7 @@ struct BoundaryEdge {
   int component_index; // Index of boundary component (closed loop).
   int marker;          // Boundary marker.
   BoundaryEdge *next;
-
-  BoundaryEdge() {}
+  BoundaryEdge() {};
   BoundaryEdge(int a, int b, int ci, int m, double alp) 
   {
     A = a; B = b; 
@@ -55,21 +68,21 @@ struct BoundaryEdge {
   }
 };
 
-// Private types:
-
-struct LineBox {
+// Pair of interest indices representing a (possibly curvilinear) 
+// boundary edge.
+struct BoundaryPair {
   int A, B;
-  LineBox *next;
-  LineBox(
-   int a, int b
-  ) {A = a; B = b; next = NULL;}
+  BoundaryPair *next;
+  BoundaryPair(int a, int b) {A = a; B = b; next = NULL;}
 };
 
-struct LineList {
-  LineBox *First, *Last, *Ptr;
-  LineList() {First = Last = Ptr = NULL;}
+// Represents the boundary (algebraically) via pairs of integer indices
+// of grid points. Used by meshing algorithm.
+struct BoundaryPairsList {
+  BoundaryPair *First, *Last, *Ptr;
+  BoundaryPairsList() {First = Last = Ptr = NULL;}
   void Init() {Ptr = First;}
-  bool Get(int &a, int &b);
+  bool GetNext(int &a, int &b);
   bool Contains(int C);
   void Add(int a, int b);
   bool Delete(int a, int b);
@@ -80,14 +93,37 @@ struct LineList {
   bool IsEmpty() {return (First == NULL) ? true : false;}
 };
 
-struct BoundaryEdgeList {
-  BoundaryEdge *First, *Last, *Ptr;
-  BoundaryEdgeList() {First = Last = Ptr = NULL;}
+// Pair of points representing a boundary line. Note that multiple
+// boundary lines are used to represent a curvilinear boundary edge.
+struct BoundaryLine {
+  Point A, B;
+  BoundaryLine *next;
+  BoundaryLine(Point a, Point b) {A = a; B = b; next = NULL;}
+};
+
+// Represents boundary (geometrially) via pairs of grid points
+// (their physical coordinates). Used for domain area calculation, 
+// determination whether a point is inside or outside of the domain,
+// etc.
+struct BoundaryLinesList {
+  BoundaryLine *First, *Last, *Ptr;
+  BoundaryLinesList() {First = Last = Ptr = NULL;}
   void Init() {Ptr = First;}
-  bool Get(BoundaryEdge &I);
+  bool GetNext(Point &a, Point &b);
+  void DeleteLast();
+  void Add(Point a, Point b);
+  void Delete();
+};
+
+// Serves for output to mesh file.
+struct OutputBoundaryEdgeList {
+  BoundaryEdge *First, *Last, *Ptr;
+  OutputBoundaryEdgeList() {First = Last = Ptr = NULL;}
+  void Init() {Ptr = First;}
+  bool GetNext(BoundaryEdge &I);
   void Add(int a, int b, int component_index, int marker, double alpha);
   void DeleteLast();
-  void Remove();
+  void Delete();
 };
 
 struct ElemBox {
@@ -103,9 +139,9 @@ struct ElemList {
   ElemBox *First, *Ptr, *Last;
   ElemList() {First = Last = Ptr = NULL;}
   void Init() {Ptr = First;}
-  bool Get(int &a, int &b, int &c);
+  bool GetNext(int &a, int &b, int &c);
   void Add(int a, int b, int c);
-  void Remove();
+  void Delete();
   ~ElemList();
 };
 
@@ -119,47 +155,37 @@ struct PointList {
   PointBox *First, *Last, *Ptr;
   PointList() {First = Last = Ptr = NULL;}
   void Init() {Ptr = First;}
-  bool Get(Point &T);
-  bool Get(int i, double &pos_x, double &pos_y);
+  bool GetNext(Point &T);
+  bool GetNext(int i, double &pos_x, double &pos_y);
   void Add(Point P);
   void Add(double pos_x, double pos_y);
   Point Delete();
 };  
 
-struct Edge {
-  Point P;
-  int marker, subdiv;
-  double alpha;
-  Edge *next;
+struct BoundaryComponent {
+  BoundarySegment *First_segment, *Last_segment;  
+  BoundaryComponent *next;
 
-  Edge(int m, double x, double y, int n, double alp) {
-    P.x = x;
-    P.y = y;
-    marker = m;
-    subdiv = n;
-    alpha = alp;
+  BoundaryComponent() {
+    First_segment = Last_segment = NULL;
     next = NULL;
   }
 };
 
-struct BdyComponent {
-  Edge *First_edge, *Last_edge;  
-  BdyComponent *next;
-
-  BdyComponent() {
-    First_edge = Last_edge = NULL;
-    next = NULL;
-  }
-};
-
+// Stores all segments of the domain's boundary as they come from the user.
+// Can create a list of all boundary vertices (points), list of boundary 
+// lines (for plotting, area calculation, determination whether a point is 
+// inside or outside, etc), list of boundary pairs (for meshing), and list 
+// of boundary edges for output to mesh file.
 struct BoundaryType {
-  BdyComponent *First_bdy_component, *Last_bdy_component;
+  BoundaryComponent *First_bdy_component, *Last_bdy_component;
   BoundaryType() {First_bdy_component = Last_bdy_component = NULL;}  
-  void Add_bdy_component();
-  void Add_bdy_segment(int marker, double x, double y, int subdiv, double alpha);
-  LineList *CreateLineList();
-  PointList *CreatePointList();
-  BoundaryEdgeList *CreateBoundaryEdgeList();
+  void CreateNewBoundaryComponent();
+  void AddBoundarySegment(int marker, double x, double y, int subdiv, double alpha);
+  BoundaryPairsList *CreateBoundaryPairsList();
+  BoundaryLinesList *CreateBoundaryLinesList();
+  PointList *CreateBoundaryPointList();
+  OutputBoundaryEdgeList *CreateOutputBoundaryEdgeList();
   double GiveLength();
   ~BoundaryType();
 };
@@ -176,8 +202,6 @@ void XgError(const char *what);
 void XgWarning(char *who, char *what);
 void XgMessage(char *what);
 
-// class Xgen:
-
 class Xgen {
   public:
   Xgen(bool nogui, int steps_to_take, bool overlay);
@@ -193,9 +217,11 @@ class Xgen {
   bool XgGiveNextPoint(Point &p);
   void XgInitInteriorPointList();
   bool XgGiveNextInteriorPoint(Point &p);
-  void XgInitBoundaryLineList();
+  void XgInitBoundaryPairsList();
+  void XgInitBoundaryLinesList();
+  bool XgGiveNextBoundaryPair(Point &p, Point &q);
   bool XgGiveNextBoundaryLine(Point &p, Point &q);
-  void XgInitBoundaryEdgeList();
+  void XgInitOutputBoundaryEdgeList();
   bool XgGiveNextBoundaryEdge(BoundaryEdge &edge_ptr);
   void XgInitElementList();
   bool XgGiveNextElement(Point &p, Point &q, Point &r);
@@ -223,9 +249,9 @@ class Xgen {
   protected:
   void XgInit(char *cfg_filename);
   void XgSetTimestep(double init_timestep);
-  void XgAddBdyComponent();
-  void XgAddBdySegment(int marker, double x, double y, int subdiv, double alpha);
-  virtual void XgUserOutput(FILE *f);
+  void XgCreateNewBoundaryComponent();
+  void XgAddBoundarySegment(int marker, double x, double y, int subdiv, double alpha);
+  virtual void XgUserOutput(FILE *f, OutputBoundaryEdgeList* bel);
   virtual double XgCriterion(Point a, Point b, Point c);
   virtual void XgReadData(FILE *f) = 0;
   bool nogui;        // if true, operates in batch mode.
@@ -237,19 +263,22 @@ class Xgen {
   double H, DeltaT, TimestepConst; int Nstore;
   char *Name; int Dimension; int InteriorPtsNum, 
   BoundaryPtsNum, Npoin, Nelem; Point *E; BoundaryType Boundary; 
-  LineList *L; PointList *EL; ElemList *ElemL; 
-  BoundaryEdgeList *BIL; double Xmax, Xmin, Ymax, 
+  BoundaryPairsList* BPL; 
+  BoundaryLinesList* BLL; 
+  PointList* PL; 
+  ElemList* EL; 
+  double Xmax, Xmin, Ymax, 
   Ymin, Area, First_DeltaT; int GoThroughPointsPtr, 
   RedrawInteriorPtr, IterationPtr, First_Npoin, First_Nstore;
   void Shift(int i, Point Impuls);
-  bool Find_nearest_left(int A, int B, int &wanted);
-  Point Get_impuls(int i);
-  Point Give_impuls(int i, int j);
-  bool Is_inside(Point &P);
-  bool Boundary_intact(Point a, Point b, Point c);
-  bool Intact(Point a, Point b, Point c, Point d);
-  bool Is_left(Point A, Point B, Point C);
-  bool Is_right(Point A, Point B, Point C);
+  bool FindNearestLeft(int A, int B, int &wanted);
+  Point GetImpuls(int i);
+  Point GiveImpuls(int i, int j);
+  bool IsInside(Point &P);
+  bool BoundaryIntersectionCheck(Point a, Point b, Point c);
+  bool EdgesIntersect(Point a, Point b, Point c, Point d);
+  bool IsLeft(Point A, Point B, Point C);
+  bool IsRight(Point A, Point B, Point C);
 };
 
 // Calling Motif:
