@@ -27,10 +27,17 @@ struct Point {
 };
 
 struct Element {
-  int n1, n2, n3;
+  int a, b, c;                              // integer indices in the array of points
+  double ab_angle, ac_angle, bc_angle;      // central angles of edges
+                                            // this angle is zero when an edge is straight
   Element() {}
   Element(int in1, int in2, int in3) {
-    n1 = in1; n2 = in2; n3 = in3;
+    a = in1; b = in2; b = in3;
+    ab_angle = ac_angle = bc_angle = 0;
+  } 
+  Element(int in1, int in2, int in3, double ab, double ac, double bc) {
+    a = in1; b = in2; c = in3;
+    ab_angle = ab; ac_angle = ac; bc_angle = bc;
   } 
 };
 
@@ -76,8 +83,9 @@ struct BoundaryEdge {
 // boundary edge.
 struct BoundaryPair {
   int A, B;
+  double alpha;
   BoundaryPair *next;
-  BoundaryPair(int a, int b) {A = a; B = b; next = NULL;}
+  BoundaryPair(int a, int b, double alp) {A = a; B = b; alpha = alp, next = NULL;}
 };
 
 // Represents the boundary (algebraically) via pairs of integer indices
@@ -86,13 +94,13 @@ struct BoundaryPairsList {
   BoundaryPair *First, *Last, *Ptr;
   BoundaryPairsList() {First = Last = Ptr = NULL;}
   void Init() {Ptr = First;}
-  bool GetNext(int &a, int &b);
+  bool GetNext(int &a, int &b, double &alpha);
   bool Contains(int C);
-  void Add(int a, int b);
-  bool Delete(int a, int b);
+  void Add(int a, int b, double alp);
+  bool Delete(int a, int b, double &alp);
   void DeleteLast();
   void Delete();
-  void GetLast(int &a, int &b) {a = Last->A; b = Last->B;}
+  void GetLast(int &a, int &b, double &alp) {a = Last->A; b = Last->B; alp = Last->alpha;}
   void ChangeLast(int a, int b);
   bool IsEmpty() {return (First == NULL) ? true : false;}
 };
@@ -135,7 +143,13 @@ struct ElemBox {
   Element E;
   ElemBox *next;
   ElemBox(int a, int b, int c) {
-    E.n1 = a; E.n2 = b; E.n3 = c; 
+    E.a = a; E.b = b; E.c = c; 
+    E.ab_angle = 0; E.ac_angle = 0; E.bc_angle = 0;
+    next = NULL;
+  }
+  ElemBox(int a, int b, int c, double ab, double ac, double bc) {
+    E.a = a; E.b = b; E.c = c; 
+    E.ab_angle = ab; E.ac_angle = ac; E.bc_angle = bc;
     next = NULL;
   }
 };
@@ -144,8 +158,8 @@ struct ElemList {
   ElemBox *First, *Ptr, *Last;
   ElemList() {First = Last = Ptr = NULL;}
   void Init() {Ptr = First;}
-  bool GetNext(int &a, int &b, int &c);
-  void Add(int a, int b, int c);
+  bool GetNext(int &a, int &b, int &c, double &ab, double &ac, double &bc);
+  void Add(int a, int b, int c, double ab, double ac, double bc);
   void Delete();
   ~ElemList();
 };
@@ -226,12 +240,14 @@ class Xgen {
   bool XgGiveNextInteriorPoint(Point &p);
   void XgInitBoundaryPairsList();
   void XgInitBoundaryLinesList();
-  bool XgGiveNextBoundaryPair(Point &p, Point &q);
+  bool XgGiveNextBoundaryPair(Point &p, Point &q, double &alpha);
   bool XgGiveNextBoundaryLine(Point &p, Point &q);
   void XgInitOutputBoundaryEdgeList();
+  double XgGetBdyEdgeAngle(int A, int B); // returns zero if AB is not a boundary edge
   bool XgGiveNextBoundaryEdge(BoundaryEdge &edge_ptr);
   void XgInitElementList();
-  bool XgGiveNextElement(Point &p, Point &q, Point &r);
+  bool XgGiveNextElement(Point &p, Point &q, Point &r, 
+                         double &ab_angle, double &ac_angle, double &bc_angle);
   bool XgGiveNextElement(Element &element);
   void XgForgetGrid();
   void XgSetPointsRandom();
@@ -239,7 +255,8 @@ class Xgen {
   void XgInputPoints(FILE *f, int *error, int *mem);
   void XgOutputPoints(FILE *f);
   void XgOutput(FILE *f);
-  bool XgNextTriangle(Point &p, Point &q, Point &r, bool &ready);
+  bool XgCreateNextTriangle(int &A, int &B, int &C, double &AB_angle, 
+                            double &AC_angle, double &BC_angle, bool &finished);
   void XgNextShift(Point *p_old, Point *p_new);
   bool XgMouseAdd(Point p);
   bool XgMouseRemove(Point p_from, Point *p_where);
@@ -251,7 +268,9 @@ class Xgen {
   Point XgGivePoint(long pos_in_list);
   Element XgGiveElement(long pos_in_list);
   bool CreateMeshBatchMode();
+  Point* XgGivePoints() {return Points;}
   ~Xgen();
+ 
 
   protected:
   void XgInit(char *cfg_filename);
@@ -265,11 +284,12 @@ class Xgen {
   int steps_to_take; // used with -nogui only: number of relaxation steps to be done.
   bool overlay;      // if true, initial equidistant overlay point 
                      // distribution will be used, otherwise random 
+  Point* Points; 
 
   private:
   double H, DeltaT, TimestepConst; int Nstore;
   char *Name; int Dimension; int InteriorPtsNum, 
-  BoundaryPtsNum, Npoin, Nelem; Point *E; BoundaryType Boundary; 
+  BoundaryPtsNum, Npoin, Nelem; BoundaryType Boundary; 
   BoundaryPairsList* BPL; 
   BoundaryLinesList* BLL; 
   PointList* PL; 
