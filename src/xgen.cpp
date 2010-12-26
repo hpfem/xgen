@@ -82,6 +82,7 @@ void BoundaryPairsList::Add(int a, int b, double alp)
     Last->next = new BoundaryPair(a, b, alp);
     Last = Last->next;
   }
+  //printf("Added boundary pair (%d %d), angle %g\n", a, b, alp);
 }
 
 void BoundaryPairsList::DeleteLast() {
@@ -264,10 +265,10 @@ void BoundaryLinesList::DeleteLast() {
 }
 
 /**
- **   struct OutputBoundaryEdgeList:
+ **   struct BoundaryEdgeList:
  **/
 
-bool OutputBoundaryEdgeList::GetNext(BoundaryEdge &BE) {
+bool BoundaryEdgeList::GetNext(BoundaryEdge &BE) {
   if(Ptr != NULL) {
     BE = *Ptr;
     Ptr = Ptr->next;
@@ -276,7 +277,7 @@ bool OutputBoundaryEdgeList::GetNext(BoundaryEdge &BE) {
   else return false;
 }
 
-void OutputBoundaryEdgeList::Add(int a, int b, int component_index, int marker, double alpha) 
+void BoundaryEdgeList::Add(int a, int b, int component_index, int marker, double alpha) 
 {
   if (Last == NULL) {
     First = Last = new BoundaryEdge(a, b, component_index, marker, alpha);
@@ -287,7 +288,7 @@ void OutputBoundaryEdgeList::Add(int a, int b, int component_index, int marker, 
   }
 }
 
-void OutputBoundaryEdgeList::DeleteLast() {
+void BoundaryEdgeList::DeleteLast() {
   BoundaryEdge *p = First;
   if (p->next == NULL) {
     delete p;
@@ -307,7 +308,7 @@ void OutputBoundaryEdgeList::DeleteLast() {
   }
 }
 
-void OutputBoundaryEdgeList::Delete() {
+void BoundaryEdgeList::Delete() {
   BoundaryEdge *p = Ptr = First;
   while(p != NULL) {
     Ptr = Ptr->next;
@@ -594,8 +595,8 @@ void BoundaryType::CalculateLength()
   }
 }
 
-OutputBoundaryEdgeList* BoundaryType::CreateOutputBoundaryEdgeList() {
-  OutputBoundaryEdgeList* bel = new OutputBoundaryEdgeList;
+BoundaryEdgeList* BoundaryType::CreateBoundaryEdgeList() {
+  BoundaryEdgeList* bel = new BoundaryEdgeList;
   int Count = 0, First_point_of_component = 0;
   int subdiv = 0, component_index = 0;
   int last_marker, last_subdiv;
@@ -862,9 +863,7 @@ void Xgen::XgSetPointsOverlay() {
 }
 
 void Xgen::XgOutput(FILE *f) {
-  OutputBoundaryEdgeList* bel = Boundary.CreateOutputBoundaryEdgeList();
-  XgUserOutput(f, bel);
-  bel -> Delete();
+  XgUserOutput(f);
 } 
 
 void Xgen::XgInputPoints(FILE *f, int *error, int *mem) {
@@ -953,24 +952,30 @@ bool Xgen::XgCreateNextTriangle(int &A, int &B, int &C,
 
   BPL->GetLast(A, B, AB_angle);
 
+  //printf("Looking for nearest point C on the left of edge (%d %d), central angle %g\n", A, B, AB_angle);
   if(!FindNearestLeft(A, B, C)) {
     printf("FindNearestLeft() failed.\n");
     return false;
   }
+  //printf("Found C = %d\n", C);
 
   if (BPL->Delete(C, A, CA_angle)) {
+    //printf("Deleted edge (%d %d), angle %g\n", C, A, CA_angle);
     if (BPL->Delete(B, C, BC_angle)) BPL->DeleteLast();
     else {
       BPL->ChangeLast(C, B);
       BC_angle = 0;
+      //printf("Last edge changed to (%d %d), angle %g\n", C, B, BC_angle);
     }
   }
   else {
     BPL->ChangeLast(A, C);
     CA_angle = 0;
+    //printf("Last edge changed to (%d %d), angle %g\n", A, C, CA_angle);
     if (!BPL->Delete(B, C, BC_angle)) {
       BC_angle = 0;
       BPL->Add(C, B, BC_angle);  // zero angle, this is not an original boundary edge
+      //printf("Added edge (%d %d), angle %g\n", C, B, BC_angle);
     }
   }
 
@@ -981,7 +986,7 @@ bool Xgen::XgCreateNextTriangle(int &A, int &B, int &C,
 
   Nelem++;
   
-  //printf("New element (%d %d %d)\n", A, B, C);
+  //printf("New element (%d %d %d) angles (%g %g %g)\n", A, B, C, AB_angle, CA_angle, BC_angle);
 
   return true;
 }
@@ -1170,13 +1175,21 @@ void Xgen::XgInit(char *cfg_filename) {
   // Average boundary edge length.
   double length = Boundary.GiveLength();
   this->H = length / BoundaryPtsNum;
-  printf("boundary length = %g\n", length);
+  printf("Boundary length = %g\n", length);
 
-  // Constructing boundary -- list of pairs of point indices (for mesh geenration).
+  // Constructing list of boundary pairs for mesh generation.
+  // Does change during meshing.
   BPL = Boundary.CreateBoundaryPairsList();
   BPL->Init();                                           
 
-  // Constructing boundary -- the geometrical curve.
+  // Constructing list of boundary edges, for output and 
+  // to check during meshing whether an edge lies on the 
+  // boundary. This list does not change during meshing. 
+  BEL = Boundary.CreateBoundaryEdgeList();
+
+  // Constructing boundary -- the geometrical curve. Circular
+  // arcs are approxmated by small linear abscissas. This list 
+  // does not change during meshing. 
   BLL = Boundary.CreateBoundaryLinesList(this->H);
   BLL->Init();                                           
 
@@ -1211,8 +1224,10 @@ void Xgen::XgInit(char *cfg_filename) {
   BLL->Init();                                           
 
   // Sanity checks.
-  if(Area <= 0)
+  printf("Domain's area: %g\n", Area);
+  if(Area <= 0) {
     XgError("Bad boundary (or its orientation) in XgReadData().");
+  }
 
   // Calculating optimal number of interior points.
   int help;
@@ -1260,10 +1275,8 @@ void Xgen::XgInit(char *cfg_filename) {
 
     // Save the mesh to a file.
     FILE *f = fopen("out.mesh", "w");
-    if (f == NULL) XgError("Failed to open mesh file for writing.");
-    OutputBoundaryEdgeList* bel = Boundary.CreateOutputBoundaryEdgeList();
-    XgUserOutput(f, bel);
-    bel -> Delete();
+    if (f == NULL) XgError("Failed to open mesh file for writing."); 
+    XgUserOutput(f);
     fclose(f);
 
     // Exit the program.
@@ -1303,7 +1316,7 @@ bool XgVertexInElem(int v, Element *e) {
   else return false;
 }
 
-void Xgen::XgUserOutput(FILE *f, OutputBoundaryEdgeList* bel) {
+void Xgen::XgUserOutput(FILE *f) {
   fprintf(f, "# XGEN mesh in Hermes2D format\n");
   fprintf(f, "# Project: "); fprintf(f, "%s\n", XgGiveName());
   fprintf(f, "# Edges are positively oriented\n");
@@ -1342,9 +1355,9 @@ void Xgen::XgUserOutput(FILE *f, OutputBoundaryEdgeList* bel) {
   fprintf(f, "\n# Boundary markers:\n");  
   fprintf(f, "# (bdy_vertex_1 bdy_vertex_2 edge_index)\nboundaries =\n{\n");  
   BoundaryEdge be;
-  bel->Init();
+  this->BEL->Init();
   counter = 0;
-  while(bel->GetNext(be) == true) {
+  while(this->BEL->GetNext(be) == true) {
     counter++;
     if (counter < XgGiveBoundaryPtsNum()) fprintf(f, "  { %d, %d, %d },\n", be.A, be.B, be.marker);
     else fprintf(f, "  { %d, %d, %d }\n", be.A, be.B, be.marker);
@@ -1354,9 +1367,9 @@ void Xgen::XgUserOutput(FILE *f, OutputBoundaryEdgeList* bel) {
   // Writing circular arcs (if any):
   fprintf(f, "\n# Circular arcs:\n");  
   fprintf(f, "# (bdy_vertex_1 bdy_vertex_2 central_angle)\ncurves =\n{\n");  
-  bel->Init();
+  this->BEL->Init();
   counter = 0;
-  while(bel->GetNext(be) == true) {
+  while(this->BEL->GetNext(be) == true) {
     counter++;
     if (fabs(be.alpha) > 1e-3) {
       if (counter < XgGiveBoundaryPtsNum())
@@ -1437,14 +1450,18 @@ bool Xgen::EdgesIntersect(Point a, Point b, Point c, Point d)
   else return false;
 }
 
-// Checks whether edges (a, c) or (b, c) intersect with 
-// (possibly curvilinear) boundary.
-bool Xgen::BoundaryIntersectionCheck(Point a, Point b, Point c) 
+// Checks whether edge (a, b) intersects with (possibly curvilinear) boundary.
+bool Xgen::BoundaryIntersectionCheck(Point a, Point b) 
 {
-  Point d, e;
+  Point c, d;
   BLL -> Init();
-  while(BLL->GetNext(d, e)) {
-    if(EdgesIntersect(a, c, d, e) || EdgesIntersect(b, c, d, e)) return true;
+  while(BLL->GetNext(c, d)) {
+    if(EdgesIntersect(a, b, c, d)) {
+      //printf("Intersecting edges:\n");
+      //printf("AB = (%g %g) (%g %g)\n", a.x, a.y, b.x, b.y);
+      //printf("BdyEdge = (%g %g) (%g %g)\n", c.x, c.y, d.x, d.y);
+      return true;
+    }
   }
   return false;
 }
@@ -1470,6 +1487,17 @@ double TriaVolume(Point a, Point b, Point c) {
   return Distance(a, b, c)*AreaSize(b, c)/2;
 }
 
+bool Xgen::XgIsBoundaryEdge(int a, int b) 
+{
+  BoundaryEdge be;
+  this->BEL->Init();
+  while(this->BEL->GetNext(be)) {
+    if (be.A == a && be.B == b) return true;
+    if (be.A == b && be.B == a) return true;
+  }
+  return false;
+}
+
 bool Xgen::FindNearestLeft(int A, int B, int &wanted) 
 {
   double m, Min;
@@ -1478,14 +1506,35 @@ bool Xgen::FindNearestLeft(int A, int B, int &wanted)
   for (int C = 0; C < Npoin; C++) {
     if (C != A && C != B) {
       if (IsLeft(Points[A], Points[B], Points[C])) {
+        //printf("Probing C = %d\n", C); 
         m = XgCriterion(Points[A], Points[B], Points[C]);
+        //printf("   criterion %g (Min = %g)\n", m, Min); 
         if(m < Min) {
+          //printf("   checking whether C is inside or whether it is a boundary vertex:\n"); 
           if(IsInside(Points[C]) || BPL->Contains(C)) {
-            if(!BoundaryIntersectionCheck(Points[A], Points[B], Points[C])) {
-              if(TriaVolume(Points[A], Points[B], Points[C]) > XG_ZERO) {
+            //printf("Yes\nChecking intersection with boundary:\n");
+            bool intersects = false;
+            if (XgIsBoundaryEdge(A, C)) intersects = false;
+            else {
+              if (BoundaryIntersectionCheck(Points[A], Points[C])) {
+                intersects = true;
+                //printf("Edge (%d %d) intersects with boundary.\n", A, C);
+              }
+            }
+            if (XgIsBoundaryEdge(B, C)) intersects = false;
+            else {
+              if (BoundaryIntersectionCheck(Points[B], Points[C])) {
+                intersects = true;
+                //printf("Edge (%d %d) intersects with boundary.\n", B, C);
+              }
+            }
+            if (intersects == false) {
+              double vol = TriaVolume(Points[A], Points[B], Points[C]);
+              if (vol > XG_ZERO) {
   	        Min = m;
 	        wanted0 = C;
               }
+              //else printf("Element (%d %d %d), volume = %g\n", A, B, C, vol);
             }
           }
         }

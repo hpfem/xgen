@@ -89,7 +89,7 @@ struct BoundaryPair {
 };
 
 // Represents the boundary (algebraically) via pairs of integer indices
-// of grid points. Used by meshing algorithm.
+// of grid points. Changes during meshing.
 struct BoundaryPairsList {
   BoundaryPair *First, *Last, *Ptr;
   BoundaryPairsList() {First = Last = Ptr = NULL;}
@@ -116,7 +116,7 @@ struct BoundaryLine {
 // Represents boundary (geometrially) via pairs of grid points
 // (their physical coordinates). Used for domain area calculation, 
 // determination whether a point is inside or outside of the domain,
-// etc.
+// etc. Does not change during meshing.
 struct BoundaryLinesList {
   BoundaryLine *First, *Last, *Ptr;
   BoundaryLinesList() {First = Last = Ptr = NULL;}
@@ -128,10 +128,12 @@ struct BoundaryLinesList {
   void Delete();
 };
 
-// Serves for output to mesh file.
-struct OutputBoundaryEdgeList {
+// Serves for output to mesh file and for checking whether 
+// an edge liea on the boundary. Does not change during 
+// meshing.
+struct BoundaryEdgeList {
   BoundaryEdge *First, *Last, *Ptr;
-  OutputBoundaryEdgeList() {First = Last = Ptr = NULL;}
+  BoundaryEdgeList() {First = Last = Ptr = NULL;}
   void Init() {Ptr = First;}
   bool GetNext(BoundaryEdge &I);
   void Add(int a, int b, int component_index, int marker, double alpha);
@@ -204,7 +206,7 @@ struct BoundaryType {
   BoundaryPairsList *CreateBoundaryPairsList();
   BoundaryLinesList *CreateBoundaryLinesList(double H); // H is average mesh edge length.
   PointList *CreateBoundaryPointList();
-  OutputBoundaryEdgeList *CreateOutputBoundaryEdgeList();
+  BoundaryEdgeList *CreateBoundaryEdgeList();
   void CalculateLength();
   double GiveLength() {return Length;};
   ~BoundaryType();
@@ -242,7 +244,8 @@ class Xgen {
   void XgInitBoundaryLinesList();
   bool XgGiveNextBoundaryPair(Point &p, Point &q, double &alpha);
   bool XgGiveNextBoundaryLine(Point &p, Point &q);
-  void XgInitOutputBoundaryEdgeList();
+  void XgInitBoundaryEdgeList();
+  bool XgIsBoundaryEdge(int a, int b);
   double XgGetBdyEdgeAngle(int A, int B); // returns zero if AB is not a boundary edge
   bool XgGiveNextBoundaryEdge(BoundaryEdge &edge_ptr);
   void XgInitElementList();
@@ -277,7 +280,7 @@ class Xgen {
   void XgSetTimestep(double init_timestep);
   void XgCreateNewBoundaryComponent();
   void XgAddBoundarySegment(int marker, double x, double y, int subdiv, double alpha);
-  virtual void XgUserOutput(FILE *f, OutputBoundaryEdgeList* bel);
+  virtual void XgUserOutput(FILE *f);
   virtual double XgCriterion(Point a, Point b, Point c);
   virtual void XgReadData(FILE *f) = 0;
   bool nogui;        // if true, operates in batch mode.
@@ -289,7 +292,8 @@ class Xgen {
   private:
   double H, DeltaT, TimestepConst; int Nstore;
   char *Name; int Dimension; int InteriorPtsNum, 
-  BoundaryPtsNum, Npoin, Nelem; BoundaryType Boundary; 
+  BoundaryPtsNum, Npoin, Nelem; BoundaryType Boundary;
+  BoundaryEdgeList* BEL; 
   BoundaryPairsList* BPL; 
   BoundaryLinesList* BLL; 
   PointList* PL; 
@@ -302,7 +306,7 @@ class Xgen {
   Point GetImpuls(int i);
   Point GiveImpuls(int i, int j);
   bool IsInside(Point &P);
-  bool BoundaryIntersectionCheck(Point a, Point b, Point c);
+  bool BoundaryIntersectionCheck(Point a, Point b);
   bool EdgesIntersect(Point a, Point b, Point c, Point d);
   bool IsLeft(Point A, Point B, Point C);
   bool IsRight(Point A, Point B, Point C);
