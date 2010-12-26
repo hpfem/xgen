@@ -35,7 +35,8 @@ struct Element {
 };
 
 struct BoundarySegment {
-  Point P;             // Starting point.
+  Point P_start;       // Starting point.
+  Point P_end;         // End point.
   int subdiv;          // Equidistant subdivision.
   double alpha;        // 0 for straight edges, nonzero for circular arcs.
   int marker;          // Boundary marker.
@@ -43,12 +44,15 @@ struct BoundarySegment {
   BoundarySegment(int m, double x, double y, int subdivision, double alp) 
   {
     marker = m;
-    P.x = x;
-    P.y = y;
+    P_start.x = x;
+    P_start.y = y;
+    P_end.x = -9999;
+    P_end.y = -9999;
     subdiv = subdivision;
     alpha = alp;
     next = NULL;
   }
+  double CalculateLength();
 };
 
 struct BoundaryEdge {
@@ -111,7 +115,8 @@ struct BoundaryLinesList {
   void Init() {Ptr = First;}
   bool GetNext(Point &a, Point &b);
   void DeleteLast();
-  void Add(Point a, Point b);
+  void AddStraightLine(Point a, Point b);
+  void AddCircularArc(Point a, Point b, double angle, double H); // H is average edge length.
   void Delete();
 };
 
@@ -179,15 +184,17 @@ struct BoundaryComponent {
 // of boundary edges for output to mesh file.
 struct BoundaryType {
   BoundaryComponent *First_bdy_component, *Last_bdy_component;
-  BoundaryType() {First_bdy_component = Last_bdy_component = NULL;}  
+  BoundaryType() {First_bdy_component = Last_bdy_component = NULL; Length = -1;}  
   void CreateNewBoundaryComponent();
   void AddBoundarySegment(int marker, double x, double y, int subdiv, double alpha);
   BoundaryPairsList *CreateBoundaryPairsList();
-  BoundaryLinesList *CreateBoundaryLinesList();
+  BoundaryLinesList *CreateBoundaryLinesList(double H); // H is average mesh edge length.
   PointList *CreateBoundaryPointList();
   OutputBoundaryEdgeList *CreateOutputBoundaryEdgeList();
-  double GiveLength();
+  void CalculateLength();
+  double GiveLength() {return Length;};
   ~BoundaryType();
+  double Length;
 };
 
 // Macro sqr(..):

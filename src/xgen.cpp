@@ -156,7 +156,7 @@ void BoundaryLinesList::Delete() {
   First = Last = NULL;
 }
 
-void BoundaryLinesList::Add(Point a, Point b) 
+void BoundaryLinesList::AddStraightLine(Point a, Point b) 
 {
   if (Last == NULL) {
     First = Last = new BoundaryLine(a, b);
@@ -164,6 +164,78 @@ void BoundaryLinesList::Add(Point a, Point b)
   else {
     Last->next = new BoundaryLine(a, b);
     Last = Last->next;
+  }
+}
+
+// Calculates center of circle with central angle alpha, passing through 
+// points a, b.
+void Calculate_circle_center(Point a, Point b, double alpha, Point &S) {
+  Point c = (a + b) / 2.;
+  Point ab = b - a;  
+  double length_ab = ab.abs();
+  double R = (length_ab / 2) / sin(alpha * M_PI / 180 / 2.);        // circle radius
+  double r0 = R * cos(alpha * M_PI / 180 / 2.);                     // distance between C and circle center
+  Point u = Point(-ab.y, ab.x) / length_ab;            // unit vector from C to circle center S
+  S = c + u * r0;                                // circle center
+  //printf("R = %g\n", R);
+  //printf("r0 = %g\n", r0);
+  //printf("C = %g %g\n", c.x, c.y);
+  //printf("U = %g %g\n", u.x, u.y);
+  //printf("S = %g %g\n", S.x, S.y);
+}
+
+// Here a, b are the arc end points and theta is an angle in degrees. With 
+// theta = 0 one obtains a. With theta = alpha one obtains b.
+void Calculate_point_on_arc(Point a, Point b, double alpha, double theta, Point &a_next) 
+{
+  // Calculate circle center.
+  Point S;
+  Calculate_circle_center(a, b, alpha, S);
+
+  // Rotation matrix.
+  double m_11 =  cos(theta*M_PI/180.); 
+  double m_12 = -sin(theta*M_PI/180.); 
+  double m_21 =  sin(theta*M_PI/180.); 
+  double m_22 =  cos(theta*M_PI/180.); 
+  //printf("Matrix: %g %g\n", m_11, m_12);
+  //printf("        %g %g\n", m_21, m_22);
+
+  Point Sa = a - S;           // vector from S to a
+  //printf("Vector SA: %g %g\n", Sa.x, Sa.y);
+  Point rotated_vec;
+  rotated_vec.x = m_11 * Sa.x + m_12 * Sa.y;
+  rotated_vec.y = m_21 * Sa.x + m_22 * Sa.y;
+  a_next = S + rotated_vec; 
+  //printf("Point A_next: %g %g\n", a_next.x, a_next.y);
+}
+
+void BoundaryLinesList::AddCircularArc(Point a, Point b, double alpha, double H) 
+{
+  // Number of straight lines to approximate a circle.
+  int n_min = 1;
+  double angle_increment = 5;   // decreasing this will produce finer plots;
+  int n = (int) (alpha / angle_increment + 0.5); 
+  if (n < n_min) n = n_min;
+
+  // Angle increment correponding to one straight line.
+  double theta = alpha / n;
+
+  // Check the length of the elementary line approximating the arc since
+  // we need to decrease the abgle if the length is less than this->H.
+  // This is because of boundary point removal.
+  Point a2;
+  Calculate_point_on_arc(a, b, alpha, theta, a2); 
+  Point Da2 = a2 - a;
+  double h = Da2.abs();
+  if (h > H) theta *= H / (2*h);
+
+  // Add elementary lines approximating the arc with angle increment theta.
+  for (int i=0; i < n; i++) {
+    Point A1, A2;
+    Calculate_point_on_arc(a, b, alpha, i * theta, A1);     
+    Calculate_point_on_arc(a, b, alpha, (i+1) * theta, A2);     
+    AddStraightLine(A1, A2); // adding the elementary line
+    //printf("Adding elementary line (%g, %g), (%g, %g)\n", A1.x, A1.y, A2.x, A2.y);
   }
 }
 
@@ -335,6 +407,26 @@ Point PointList::Delete() {
 }
 
 /**
+ **   struct BoundarySegment:
+ **/
+
+double BoundarySegment::CalculateLength() 
+{
+  if (fabs(alpha) < 1e-3) {
+    Point straight_line = P_end - P_start;
+    return straight_line.abs();
+  }
+  else {
+    Point S;
+    Calculate_circle_center(P_start, P_end, alpha, S);
+    Point radius_line = P_start - S;
+    double R = radius_line.abs();
+    double perimeter = 2*M_PI*R;
+    return alpha / 360 * perimeter;   // this is exact
+  }
+}
+
+/**
  **   struct Boundary:
  **/
 
@@ -369,6 +461,8 @@ void BoundaryType::AddBoundarySegment(int marker, double x, double y, int subdiv
   else {
     BoundarySegment *help = Last_bdy_component -> Last_segment;
     Last_bdy_component -> Last_segment = new BoundarySegment(marker, x, y, subdiv, alpha);
+    help -> P_end = Last_bdy_component -> Last_segment -> P_start;
+    Last_bdy_component -> Last_segment -> P_end = Last_bdy_component -> First_segment -> P_start;
     help -> next = Last_bdy_component -> Last_segment;
     if(help -> next == NULL) 
       XgError("BoundaryType::AddBoundarySegment(): Not enough memory."); 
@@ -387,35 +481,40 @@ BoundaryPairsList* BoundaryType::CreateBoundaryPairsList() {
       int subdiv = Segment_pointer -> subdiv;
       int first_point_of_segment = Count;
       for(int i=0; i<subdiv; i++) {
+        //printf("Adding boundary pair %d %d\n", Count, Count + 1);
         bpl->Add(Count, Count + 1);
         Count++;
       }
       Segment_pointer = Segment_pointer -> next;
     }
+    //printf("Deleting last\n");
     bpl->DeleteLast();
+    //printf("Adding boundary pair %d %d\n", Count-1, first_point_of_component);
     bpl->Add(Count-1, first_point_of_component);
     Bdy_component_pointer = Bdy_component_pointer -> next;
   }
   return bpl;
 }       
 
-BoundaryLinesList* BoundaryType::CreateBoundaryLinesList() {
+BoundaryLinesList* BoundaryType::CreateBoundaryLinesList(double H) {
   BoundaryLinesList* bll = new BoundaryLinesList;
 
   BoundaryComponent *Bdy_component_pointer = First_bdy_component;
   while(Bdy_component_pointer != NULL) {
     BoundarySegment *Segment_pointer = Bdy_component_pointer -> First_segment;  
-    Point first_point_of_component = Segment_pointer -> P;
+    Point first_point_of_component = Segment_pointer -> P_start;
     while(Segment_pointer != NULL) {
-      Point first_point_of_segment = Segment_pointer -> P;
+      Point first_point_of_segment = Segment_pointer -> P_start;
       Point last_point_of_segment;
       if (Segment_pointer != Bdy_component_pointer -> Last_segment) 
-        last_point_of_segment = Segment_pointer -> next -> P;
+        last_point_of_segment = Segment_pointer -> next -> P_start;
       else last_point_of_segment = first_point_of_component;
-      int subdiv = Segment_pointer -> subdiv;
-      for(int i = 0; i < subdiv; i++) {
-        Point delta = (last_point_of_segment - first_point_of_segment) / subdiv;
-        bll->Add(first_point_of_segment + delta * i, first_point_of_segment + delta * (i+1));
+      double alpha = Segment_pointer -> alpha;
+      if (fabs(alpha) < 1e-3) {
+        bll->AddStraightLine(first_point_of_segment, last_point_of_segment);
+      }
+      else {
+        bll->AddCircularArc(first_point_of_segment, last_point_of_segment, alpha, H);
       }
       Segment_pointer = Segment_pointer -> next;
     }
@@ -426,57 +525,68 @@ BoundaryLinesList* BoundaryType::CreateBoundaryLinesList() {
 
 PointList* BoundaryType::CreateBoundaryPointList() {
   PointList* bpl = new PointList;
-  Point 
-   First_point_of_component(0, 0),
-   First_point(0, 0), 
-   next_point(0, 0), 
-   P(0, 0);
+  Point first_point_of_component, first_point, next_point, P;
   int subdiv;
+  double angle;
 
   BoundaryComponent *Bdy_component_pointer = First_bdy_component;
   while(Bdy_component_pointer != NULL) {
     BoundarySegment *Segment_pointer = Bdy_component_pointer -> First_segment;  
-    First_point_of_component = First_point = Segment_pointer->P;
+    first_point_of_component = first_point = Segment_pointer->P_start;
     while(Segment_pointer->next != NULL) {
       subdiv = Segment_pointer -> subdiv;
+      angle = Segment_pointer -> alpha;
       Segment_pointer = Segment_pointer->next;
-      next_point = Segment_pointer->P;
-      P = (next_point - First_point)/subdiv;
-      for(int i=0; i<subdiv; i++) {
-        bpl->Add(First_point + P*i);
+      next_point = Segment_pointer->P_start;
+      if (fabs(angle) < 1e-3) {
+        P = (next_point - first_point)/subdiv;
+        for(int i=0; i<subdiv; i++) {
+          Point PP = first_point + P*i;
+          bpl->Add(PP);
+        }
       }
-      First_point = next_point;
+      else {
+        for(int i=0; i<subdiv; i++) {
+          Calculate_point_on_arc(first_point, next_point, angle, i * angle / subdiv, P); 
+          bpl->Add(P);
+        }
+      }
+      first_point = next_point;
     }
     subdiv = Segment_pointer -> subdiv;
-    P = (First_point_of_component - First_point)/subdiv;
-    for(int i=0; i<subdiv; i++) bpl->Add(First_point + P*i);
+    angle = Segment_pointer -> alpha;
+    next_point = first_point_of_component;
+    if (fabs(angle) < 1e-3) {
+      P = (next_point - first_point)/subdiv;
+      for(int i=0; i<subdiv; i++) {
+        Point PP = first_point + P*i;
+        bpl->Add(PP);
+      }
+    }
+    else {
+      for(int i=0; i<subdiv; i++) {
+        Calculate_point_on_arc(first_point, next_point, angle, i * angle / subdiv, P); 
+        bpl->Add(P);
+      }
+    }
     Bdy_component_pointer = Bdy_component_pointer -> next;
   }
   return bpl;
-}       
+}
 
-double BoundaryType::GiveLength() {
-  double length = 0;
-  Point 
-   First_point_of_component(0, 0),
-   First_point(0, 0), 
-   next_point(0, 0);
-
-  BoundaryComponent *Bdy_component_pointer = First_bdy_component;
-  while(Bdy_component_pointer != NULL) {
-    BoundarySegment *Segment_pointer = Bdy_component_pointer -> First_segment;  
-    First_point_of_component = First_point = Segment_pointer->P;
-    while(Segment_pointer->next != NULL) {
-      Segment_pointer = Segment_pointer->next;
-      next_point = Segment_pointer->P;
-      length += (next_point - First_point).abs();
-      First_point = next_point;
+void BoundaryType::CalculateLength() 
+{
+  this->Length = 0;
+  BoundaryComponent *component = First_bdy_component;
+  while(component != NULL) {
+    BoundarySegment *segment = component -> First_segment;  
+    while(segment != NULL) {
+      this->Length += segment->CalculateLength();
+      segment = segment->next;
     }
-    length += (First_point_of_component - First_point).abs();
-    Bdy_component_pointer = Bdy_component_pointer -> next;
+    component = component -> next;
   }
-  return length;
-}       
+}
 
 OutputBoundaryEdgeList* BoundaryType::CreateOutputBoundaryEdgeList() {
   OutputBoundaryEdgeList* bel = new OutputBoundaryEdgeList;
@@ -562,7 +672,6 @@ Xgen::Xgen(bool nogui, int steps_to_take, bool overlay) {
   else printf("Xgen will operate in interactive mode.\n");
   if (overlay) printf("Xgen will use an equidistant overlay pattern for initial point positions.\n");
   else printf("Random initial point distribution will be used.\n");
-
 }
 
 char* Xgen::XgGiveName() {
@@ -780,24 +889,26 @@ void Xgen::XgOutputPoints(FILE *f) {
   while(XgGiveNextPoint(P) == true) fprintf(f, "%g %g\n", P.x, P.y);
 } 
 
-void Undraw_point1(Point);
+void Undraw_point(Point);
 
 bool Xgen::XgNextTriangle(Point &p, Point &q, Point &r, bool &finished) {
 
   finished = false;
   int A, B, C;
 
-  // Go through all boundary edges and remove points which 
+  // At first call, go through all boundary edges and remove points which 
   // are too close to the boundary.
   if(REMOVE_BDY_PTS_ACTIVE == true) {
     double coeff = 3.0;
 
     int was_deleted = 0;
     Point a, b;
-    XgInitBoundaryPairsList();                                           
-    while(XgGiveNextBoundaryPair(a, b) == true) {
-      double h = sqrt((a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y));
-      double dh = h/coeff;
+    XgInitBoundaryLinesList();                                           
+    while(XgGiveNextBoundaryLine(a, b) == true) {
+      //printf("Boundary removal line: (%g %g) (%g %g).\n", a.x, a.y, b.x, b.y);
+
+      //double h = sqrt((a.x - b.x)*(a.x - b.x) + (a.y - b.y)*(a.y - b.y));
+      double dh = H/coeff;
       XgInitInteriorPointList();
       Point c;
       while(XgGiveNextInteriorPoint(c) == true) {
@@ -837,7 +948,10 @@ bool Xgen::XgNextTriangle(Point &p, Point &q, Point &r, bool &finished) {
 
   BPL->GetLast(A, B);
 
-  if(!FindNearestLeft(A, B, C)) return false;
+  if(!FindNearestLeft(A, B, C)) {
+    printf("FindNearestLeft() failed.\n");
+    return false;
+  }
 
   if (BPL->Delete(C, A)) {
     if (BPL->Delete(B, C)) BPL->DeleteLast();
@@ -859,6 +973,9 @@ bool Xgen::XgNextTriangle(Point &p, Point &q, Point &r, bool &finished) {
   q = E[B];
   r = E[C];
   
+  //printf("New element (%d %d %d) ... (%g %g) (%g %g) (%g %g)\n", 
+  //       A, B, C, E[A].x, E[A].y, E[B].x, E[B].y, E[C].x, E[C].y);
+
   return true;
 }
 
@@ -929,7 +1046,7 @@ bool Xgen::XgRemoveInteriorPoint(Point p) {
   Nstore++;
   RedrawInteriorPtr--;
 
-  if (this->nogui == false) Undraw_point1(p);
+  if (this->nogui == false) Undraw_point(p);
   IterationPtr = BoundaryPtsNum;
 
   return true;
@@ -970,6 +1087,16 @@ Element Xgen::XgGiveElement(long pos_in_list) {
 /**
  **   class Xgen: protected methods
  **/
+
+double min(double a, double b) {
+  if (a < b) return a;
+  else return b;
+}
+
+double max(double a, double b) {
+  if (a > b) return a;
+  else return b;
+}
 
 void Xgen::XgInit(char *cfg_filename) {
   if(cfg_filename == NULL) XgError("Xgen::XgInit(): Empty filename.\nVerify the number of command line parameters.");
@@ -1026,34 +1153,44 @@ void Xgen::XgInit(char *cfg_filename) {
   // Storing Nstore in case user would want to refresh it.
   First_Nstore = Nstore;
 
-  // Average boundary edge length.
-  H = Boundary.GiveLength()/BoundaryPtsNum;
-
   // Creating initial point list.
   PL = Boundary.CreateBoundaryPointList();
 
-  // Calculating extrems of boundary coordinates.
-  Point T;
-  PL->Init();
-  Xmin = PL->First->P.x;            
-  Xmax = PL->First->P.x;            
-  Ymin = PL->First->P.y;            
-  Ymax = PL->First->P.y;            
-  while(PL->GetNext(T)) {                      
-    if(T.x < Xmin) Xmin = T.x;
-    if(T.x > Xmax) Xmax = T.x;
-    if(T.y < Ymin) Ymin = T.y;
-    if(T.y > Ymax) Ymax = T.y;
-  }
-  PL->Init();
+  // Boundary calculates its length (taking into account that some segments are 
+  // curvilinear). 
+  Boundary.CalculateLength();
+
+  // Average boundary edge length.
+  double length = Boundary.GiveLength();
+  this->H = length / BoundaryPtsNum;
+  printf("boundary length = %g\n", length);
 
   // Constructing boundary -- list of pairs of point indices (for mesh geenration).
   BPL = Boundary.CreateBoundaryPairsList();
   BPL->Init();                                           
 
   // Constructing boundary -- the geometrical curve.
-  BLL = Boundary.CreateBoundaryLinesList();
+  BLL = Boundary.CreateBoundaryLinesList(this->H);
   BLL->Init();                                           
+
+  // Calculating extrems of boundary coordinates.
+  Xmin = min(BLL->First->A.x, BLL->First->B.x);            
+  Xmax = max(BLL->First->A.x, BLL->First->B.x);            
+  Ymin = min(BLL->First->A.y, BLL->First->B.y);            
+  Ymax = max(BLL->First->A.y, BLL->First->B.y);            
+  Point T1, T2;
+  while(BLL->GetNext(T1, T2)) {       
+    double xmin = min(T1.x, T2.x);            
+    double xmax = max(T1.x, T2.x);            
+    double ymin = min(T1.y, T2.y);            
+    double ymax = max(T1.y, T2.y);            
+    if (xmin < Xmin) Xmin = xmin;
+    if (xmax > Xmax) Xmax = xmax;
+    if (ymin < Ymin) Ymin = ymin;
+    if (ymax > Ymax) Ymax = ymax;
+  }
+  BLL->Init();
+  printf("Xmin = %g, Xmax = %g, Ymin = %g, Ymax = %g\n", Xmin, Xmax, Ymin, Ymax);
 
   // Calculating the domain's area.
   Point A, B;
@@ -1498,12 +1635,6 @@ void Draw_point(int blackboard_x, int blackboard_y) {
  );
 }
 
-void Draw_point1(Point P) {
-  int blackboard_x = -RS.Init_pos_x + (int)(RS.Ratio.x*P.x/RS.Measure),
-   blackboard_y = RS.Init_pos_y + RS.MAX_Y - (int)(RS.Ratio.y*P.y/RS.Measure);
-  Draw_point(blackboard_x, blackboard_y);
-}
-
 void Undraw_point(int blackboard_x, int blackboard_y) {
   XDrawArc(
    XtDisplay(RS.blackboard),
@@ -1516,7 +1647,13 @@ void Undraw_point(int blackboard_x, int blackboard_y) {
  );
 }
 
-void Undraw_point1(Point P) {
+void Draw_point(Point P) {
+  int blackboard_x = -RS.Init_pos_x + (int)(RS.Ratio.x*P.x/RS.Measure),
+   blackboard_y = RS.Init_pos_y + RS.MAX_Y - (int)(RS.Ratio.y*P.y/RS.Measure);
+  Draw_point(blackboard_x, blackboard_y);
+}
+
+void Undraw_point(Point P) {
   int blackboard_x = - RS.Init_pos_x + (int)(RS.Ratio.x*P.x/RS.Measure),
    blackboard_y = RS.Init_pos_y + RS.MAX_Y - (int)(RS.Ratio.y*P.y/RS.Measure);
   Undraw_point(blackboard_x, blackboard_y);
@@ -1567,23 +1704,42 @@ void Graphics_const_init(int iwidth, int iheight) {
 void Draw_boundary_and_points() {
   Point a, b;             
            
+  // boundary (just the line)
   RS.RPtr->XgInitBoundaryLinesList();                                           
   while(RS.RPtr->XgGiveNextBoundaryLine(a, b) == true) {
-    Draw_point2(a);
+    //Draw_point2(a);
     Draw_line(a, b);                       
-  }                 
+  }          
+  // boundary points       
+  RS.RPtr->XgInitPointList();
+  int count = 0;
+  int bdy_pts_num = RS.RPtr->XgGiveBoundaryPtsNum();
+  while(RS.RPtr->XgGiveNextPoint(a) == true && count < bdy_pts_num) {
+    Draw_point2(a);
+    count++;
+  }
+  // interior points
   RS.RPtr->XgInitInteriorPointList();
-  while(RS.RPtr->XgGiveNextInteriorPoint(a) == true) Draw_point1(a);
+  while(RS.RPtr->XgGiveNextInteriorPoint(a) == true) Draw_point(a);
 }
 
 void Redraw_boundary() {
   Point a, b;             
            
+  // just the line
   RS.RPtr->XgInitBoundaryLinesList();                                           
   while(RS.RPtr->XgGiveNextBoundaryLine(a, b) == true) {
-    Draw_point2(a);
+    //Draw_point2(a);
     Draw_line(a, b);                       
-  }                 
+  }            
+  // boundary points       
+  RS.RPtr->XgInitPointList();
+  int count = 0;
+  int bdy_pts_num = RS.RPtr->XgGiveBoundaryPtsNum();
+  while(RS.RPtr->XgGiveNextPoint(a) == true && count < bdy_pts_num) {
+    Draw_point2(a);
+    count++;
+  }
 }
 
 void Redraw_grid() {                                           
@@ -4382,7 +4538,7 @@ static void BlackboardInput(
   P.y = RS.Measure*(RS.MAX_Y +  RS.Init_pos_y - blackboard_y)/RS.Ratio.y;
   if(draw_data -> event -> xbutton.button == Button1) { 
     if(RS.RPtr -> XgMouseAdd(P)) {
-      Draw_point1(P);
+      Draw_point(P);
       int npoin = RS.RPtr->XgGiveNpoin();
       char points_info[255];
       strcpy(points_info, RS.info_npoin_str);
@@ -4415,7 +4571,7 @@ static void BlackboardInput(
   if(draw_data -> event -> xbutton.button == Button2) {
     Point Ret;
     if(RS.RPtr -> XgMouseRemove(P, &Ret)) {
-      Undraw_point1(Ret);
+      Undraw_point(Ret);
       int npoin = RS.RPtr->XgGiveNpoin();
       char points_info[255];
       strcpy(points_info, RS.info_npoin_str);
@@ -4578,8 +4734,8 @@ Boolean Continue(XtPointer client_data) {
       for(int i=0; i<RS.SubLoopsNumber; i++) {
         Point P1, P2;
         RS.RPtr->XgNextShift(&P1, &P2);
-        Undraw_point1(P1);
-        Draw_point1(P2);
+        Undraw_point(P1);
+        Draw_point(P2);
       }
     }
     if(++Bound_count > RS.BoundaryRedrawInterval) {
