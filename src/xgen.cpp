@@ -226,13 +226,19 @@ void BoundaryLinesList::AddCircularArc(Point a, Point b, double alpha, double H)
   double theta = alpha / n;
 
   // Check the length of the elementary line approximating the arc since
-  // we need to decrease the abgle if the length is less than this->H.
+  // we need to decrease the angle if the length is less than this->H.
   // This is because of boundary point removal.
   Point a2;
-  Calculate_point_on_arc(a, b, alpha, theta, a2); 
-  Point Da2 = a2 - a;
-  double h = Da2.abs();
-  if (h > H) theta *= H / (2*h);
+  while(1) {
+    Calculate_point_on_arc(a, b, alpha, theta, a2); 
+    Point Da2 = a2 - a;
+    double h = Da2.abs();
+    if (h > H) {
+      theta /= 2;
+      n *= 2;
+    }
+    else break; 
+  }
 
   // Add elementary lines approximating the arc with angle increment theta.
   for (int i=0; i < n; i++) {
@@ -521,6 +527,9 @@ BoundaryLinesList* BoundaryType::CreateBoundaryLinesList(double H) {
         bll->AddStraightLine(first_point_of_segment, last_point_of_segment);
       }
       else {
+        printf("Adding boundary segment from (%g, %g) to (%g, %g)\n", first_point_of_segment.x,
+               first_point_of_segment.y, last_point_of_segment.x,
+               last_point_of_segment.y);
         bll->AddCircularArc(first_point_of_segment, last_point_of_segment, alpha, H);
       }
       Segment_pointer = Segment_pointer -> next;
@@ -1175,7 +1184,6 @@ void Xgen::XgInit(char *cfg_filename) {
   // Average boundary edge length.
   double length = Boundary.GiveLength();
   this->H = length / BoundaryPtsNum;
-  printf("Boundary length = %g\n", length);
 
   // Constructing list of boundary pairs for mesh generation.
   // Does change during meshing.
@@ -1191,9 +1199,13 @@ void Xgen::XgInit(char *cfg_filename) {
   // arcs are approxmated by small linear abscissas. This list 
   // does not change during meshing. 
   BLL = Boundary.CreateBoundaryLinesList(this->H);
-  BLL->Init();                                           
+
+  // Printing info.
+  printf("Boundary length = %g\n", length);
+  printf("Average edge length = %g\n", this->H);
 
   // Calculating extrems of boundary coordinates.
+  BLL->Init();                                           
   Xmin = min(BLL->First->A.x, BLL->First->B.x);            
   Xmax = max(BLL->First->A.x, BLL->First->B.x);            
   Ymin = min(BLL->First->A.y, BLL->First->B.y);            
@@ -1209,25 +1221,26 @@ void Xgen::XgInit(char *cfg_filename) {
     if (ymin < Ymin) Ymin = ymin;
     if (ymax > Ymax) Ymax = ymax;
   }
-  BLL->Init();
-  printf("Xmin = %g, Xmax = %g, Ymin = %g, Ymax = %g\n", Xmin, Xmax, Ymin, Ymax);
+  printf("Xmin = %g, Xmax = %g, Ymin = %g, Ymax = %g\n", 
+         Xmin, Xmax, Ymin, Ymax);
 
   // Calculating the domain's area.
+  BLL->Init();
   Point A, B;
-  double xa, xb, ya, yb;
+  double a1, a2, b1, b2;
   Area = 0;                                                
   while(BLL->GetNext(A, B)) {                                    
-    xa = A.x; ya = A.y;                                 
-    xb = B.x; yb = B.y;                                 
-    Area += (ya + yb - 2*Ymin)*(xa - xb)/2;                
+    a1 = A.x; a2 = A.y;                                 
+    b1 = B.x; b2 = B.y;
+    Point P = B - A;
+    double len = P.abs();
+    double area0 = (a2 - Ymin + b2 - Ymin) / 2 * (a1 - b1);   
+    //printf("interval = (%g %g), area0 = %g, length = %g\n", a1, b1, area0, len);  
+    Area += area0;  // area of trapezoid between (A, B) and constant line Ymin.               
   }                          
-  BLL->Init();                                           
-
-  // Sanity checks.
   printf("Domain's area: %g\n", Area);
-  if(Area <= 0) {
-    XgError("Bad boundary (or its orientation) in XgReadData().");
-  }
+  if(Area <= 0) XgError("Bad boundary (or its orientation) in XgReadData().");
+  BLL->Init();                                           
 
   // Calculating optimal number of interior points.
   int help;
