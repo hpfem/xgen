@@ -36,9 +36,9 @@ void XgError(const char *what) {
  **   struct BoundaryPairsList:
  **/
 
-void BoundaryPairsList::ChangeLast(int a, int b) 
+void BoundaryPairsList::Change(BoundaryPair* pair, int a, int b) 
 {
-  Last->A = a; Last->B = b; Last->alpha = 0;
+  pair->A = a; pair->B = b; pair->alpha = 0;
 }
 
 bool BoundaryPairsList::GetNext(int &a, int &b, double &alp) 
@@ -53,7 +53,7 @@ bool BoundaryPairsList::GetNext(int &a, int &b, double &alp)
   else return false;
 }
 
-void BoundaryPairsList::Delete() {
+void BoundaryPairsList::DeleteAll() {
   Ptr = First;
   BoundaryPair *p;
   while(Ptr != NULL) {
@@ -148,7 +148,7 @@ bool BoundaryLinesList::GetNext(Point &a, Point &b)
   else return false;
 }
 
-void BoundaryLinesList::Delete() {
+void BoundaryLinesList::DeleteAll() {
   Ptr = First;
   BoundaryLine *bl;
   while(Ptr != NULL) {
@@ -214,37 +214,31 @@ void Calculate_point_on_arc(Point a, Point b, double alpha, double theta, Point 
   //printf("Point A_next: %g %g\n", a_next.x, a_next.y);
 }
 
-void BoundaryLinesList::AddCircularArc(Point a, Point b, double alpha, double H) 
+// Creates several straight lines that approximate the circular arc.
+void BoundaryLinesList::AddCircularArc(Point a, Point b, double alpha, int subdiv) 
 {
-  // Number of straight lines to approximate a circle.
-  int n_min = 1;
-  double angle_increment = 5;   // decreasing this will produce finer plots;
-  int n = (int) (fabs(alpha) / angle_increment + 0.5); 
-  if (n < n_min) n = n_min;
+  //printf("Adding arc (%g %g) (%g %g) %g %d\n", a.x, a.y, b.x, b.y, alpha, subdiv);
 
-  // Angle increment correponding to one straight line.
-  double theta = alpha / n;
+  // decreasing this will produce finer plots
+  double min_angle_increment = 5;   
 
-  // Check the length of the elementary line approximating the arc since
-  // we need to decrease the angle if the length is less than this->H.
-  // This is because of boundary point removal.
-  Point a2;
-  while(1) {
-    Calculate_point_on_arc(a, b, alpha, theta, a2); 
-    Point Da2 = a2 - a;
-    double h = Da2.abs();
-    if (h > H) {
-      theta /= 2;
-      n *= 2;
-    }
-    else break; 
+  // angle step for straight lines approximating the arc,
+  // and their number on the segment
+  double d_alpha = alpha / subdiv;
+  int n = subdiv;
+
+  while (fabs(d_alpha) > min_angle_increment) {
+    d_alpha /= 2;
+    n *= 2;
   }
 
-  // Add elementary lines approximating the arc with angle increment theta.
+  //printf("d_alpha = %g, n = %d\n", d_alpha, n);
+
+  // Add elementary lines approximating the arc with angle increment d_alpha.
   for (int i=0; i < n; i++) {
     Point A1, A2;
-    Calculate_point_on_arc(a, b, alpha, i * theta, A1);     
-    Calculate_point_on_arc(a, b, alpha, (i+1) * theta, A2);     
+    Calculate_point_on_arc(a, b, alpha, i * d_alpha, A1);     
+    Calculate_point_on_arc(a, b, alpha, (i+1) * d_alpha, A2);     
     AddStraightLine(A1, A2); // adding the elementary line
     //printf("Adding elementary line (%g, %g), (%g, %g)\n", A1.x, A1.y, A2.x, A2.y);
   }
@@ -314,7 +308,7 @@ void BoundaryEdgeList::DeleteLast() {
   }
 }
 
-void BoundaryEdgeList::Delete() {
+void BoundaryEdgeList::DeleteAll() {
   BoundaryEdge *p = Ptr = First;
   while(p != NULL) {
     Ptr = Ptr->next;
@@ -355,7 +349,7 @@ bool ElemList::GetNext(int &a, int &b, int &c, double &ab_angle, double &ac_angl
   else return false;
 }
 
-void ElemList::Delete() {
+void ElemList::DeleteAll() {
   ElemBox *p;
   Ptr = First;
   while(Ptr != NULL) { 
@@ -406,7 +400,7 @@ void PointList::Add(double pos_x, double pos_y) {
   }
 }
 
-Point PointList::Delete() {
+Point PointList::DeleteAll() {
   Point P(0, 0);
 
   if(First == NULL) return P;
@@ -509,7 +503,7 @@ BoundaryPairsList* BoundaryType::CreateBoundaryPairsList() {
   return bpl;
 }       
 
-BoundaryLinesList* BoundaryType::CreateBoundaryLinesList(double H) {
+BoundaryLinesList* BoundaryType::CreateBoundaryLinesList() {
   BoundaryLinesList* bll = new BoundaryLinesList;
 
   BoundaryComponent *Bdy_component_pointer = First_bdy_component;
@@ -523,6 +517,7 @@ BoundaryLinesList* BoundaryType::CreateBoundaryLinesList(double H) {
         last_point_of_segment = Segment_pointer -> next -> P_start;
       else last_point_of_segment = first_point_of_component;
       double alpha = Segment_pointer -> alpha;
+      int subdiv = Segment_pointer -> subdiv;
       if (fabs(alpha) < 1e-3) {
         bll->AddStraightLine(first_point_of_segment, last_point_of_segment);
       }
@@ -530,7 +525,7 @@ BoundaryLinesList* BoundaryType::CreateBoundaryLinesList(double H) {
         printf("Adding boundary segment from (%g, %g) to (%g, %g)\n", first_point_of_segment.x,
                first_point_of_segment.y, last_point_of_segment.x,
                last_point_of_segment.y);
-        bll->AddCircularArc(first_point_of_segment, last_point_of_segment, alpha, H);
+        bll->AddCircularArc(first_point_of_segment, last_point_of_segment, alpha, subdiv);
       }
       Segment_pointer = Segment_pointer -> next;
     }
@@ -558,12 +553,14 @@ PointList* BoundaryType::CreateBoundaryPointList() {
         P = (next_point - first_point)/subdiv;
         for(int i=0; i<subdiv; i++) {
           Point PP = first_point + P*i;
+          //printf("Adding boundary point (%g %g)... on straight line\n", PP.x, PP.y);
           bpl->Add(PP);
         }
       }
       else {
         for(int i=0; i<subdiv; i++) {
           Calculate_point_on_arc(first_point, next_point, angle, i * angle / subdiv, P); 
+          //printf("Adding boundary point (%g %g)... on circular arc\n", P.x, P.y);
           bpl->Add(P);
         }
       }
@@ -576,12 +573,14 @@ PointList* BoundaryType::CreateBoundaryPointList() {
       P = (next_point - first_point)/subdiv;
       for(int i=0; i<subdiv; i++) {
         Point PP = first_point + P*i;
+        //printf("Adding boundary point (%g %g)... on straight line\n", PP.x, PP.y);
         bpl->Add(PP);
       }
     }
     else {
       for(int i=0; i<subdiv; i++) {
         Calculate_point_on_arc(first_point, next_point, angle, i * angle / subdiv, P); 
+        //printf("Adding boundary point (%g %g)... on circular arc\n", P.x, P.y);
         bpl->Add(P);
       }
     }
@@ -688,6 +687,8 @@ Xgen::Xgen(bool nogui, int steps_to_take, bool overlay) {
   else printf("Xgen will operate in interactive mode.\n");
   if (overlay) printf("Xgen will use an equidistant overlay pattern for initial point positions.\n");
   else printf("Random initial point distribution will be used.\n");
+
+  this->BdyComponentsNum = 1;
 }
 
 char* Xgen::XgGiveName() {
@@ -798,9 +799,9 @@ bool Xgen::XgGiveNextElement(Element &element) {
 }
 
 void Xgen::XgForgetGrid() {
-  EL->Delete();
+  EL->DeleteAll();
   Nelem = 0;
-  BPL->Delete();
+  BPL->DeleteAll();
   BPL = Boundary.CreateBoundaryPairsList();
   REMOVE_BDY_PTS_ACTIVE = true;
 }
@@ -826,6 +827,7 @@ void Xgen::XgSetPointsRandom() {
     } while(!IsInside(Points[i]));
   }
   printf("Domain filled with random points, %d grid points, %d interior.\n", Npoin, InteriorPtsNum);
+  this->Removal_of_boundary_points_needed = true;
 }
 
 bool odd(int i) {
@@ -869,6 +871,7 @@ void Xgen::XgSetPointsOverlay() {
   GoThroughPointsPtr = BoundaryPtsNum;
 
   printf("Domain filled with overlay points, %d grid points, %d interior.\n", Npoin, InteriorPtsNum);
+  this->Removal_of_boundary_points_needed = true;
 }
 
 void Xgen::XgOutput(FILE *f) {
@@ -907,44 +910,34 @@ void Xgen::XgOutputPoints(FILE *f) {
 
 void Undraw_point(Point);
 
-bool Xgen::XgCreateNextTriangle(int &A, int &B, int &C, 
-                                double &AB_angle, double &CA_angle, double &BC_angle, bool &finished) 
+void Xgen::XgRemoveBoundaryPoints() 
 {
-  finished = false;
+  double coeff = 3.0;   // points closer than H/coeff to the boundary will be removed
+  double dh = this->H / coeff;
 
-  // At first call, go through all boundary edges and remove points which 
-  // are too close to the boundary.
-  if(REMOVE_BDY_PTS_ACTIVE == true) {
-    double coeff = 3.0;
+  int was_deleted = 0;
+  Point a, b;
+  XgInitBoundaryLinesList();                                           
+  while(XgGiveNextBoundaryLine(a, b) == true) {
+    Point line = b - a;
+    double line_length = line.abs();
+    int n = (int) (line_length / this->H * 2 + 0.5);
+    if (n < 2) n = 2;
+    Point d_length = line / n;
+    for (int i=0; i < n; i++) {
+      Point bdy_point;
+      bdy_point = a + d_length * i; // we will remove interior points that are closer than 
+                                    // this->H/coeff from this point
 
-    int was_deleted = 0;
-    Point a, b;
-    XgInitBoundaryLinesList();                                           
-    while(XgGiveNextBoundaryLine(a, b) == true) {
-      double dh = this->H / coeff;
+      // loop over all interior points
       XgInitInteriorPointList();
       Point c;
       while(XgGiveNextInteriorPoint(c) == true) {
-        Point ab, ab2, ab3;
-        ab.x = 0.5*(a.x + b.x);
-        ab.y = 0.5*(a.y + b.y);
-        ab2.x = 0.5*(ab.x + b.x);
-        ab2.y = 0.5*(ab.y + b.y);
-        ab3.x = 0.5*(a.x + ab.x);
-        ab3.y = 0.5*(a.y + ab.y);
-        double dist_a_c = 
-          sqrt((a.x - c.x)*(a.x - c.x) + (a.y - c.y)*(a.y - c.y));
-        double dist_b_c = 
-          sqrt((b.x - c.x)*(b.x - c.x) + (b.y - c.y)*(b.y - c.y));
-        double dist_ab_c = 
-          sqrt((ab.x - c.x)*(ab.x - c.x) + (ab.y - c.y)*(ab.y - c.y));
-        double dist_ab2_c = 
-          sqrt((ab2.x - c.x)*(ab2.x - c.x) + (ab2.y - c.y)*(ab2.y - c.y));
-        double dist_ab3_c = 
-          sqrt((ab3.x - c.x)*(ab3.x - c.x) + (ab3.y - c.y)*(ab3.y - c.y));
+        Point dist;
+        dist = c - bdy_point;
+    
 
-        if(dist_a_c < dh || dist_b_c < dh || dist_ab_c < dh ||
-           dist_ab2_c < dh || dist_ab3_c < dh) {
+        if(dist.abs() < dh) {
           printf("Point [%g, %g] closer than h/%g to the boundary -> deleting.\n", c.x, c.y, coeff);
           was_deleted++;
           bool success = XgRemoveInteriorPoint(c);
@@ -953,32 +946,46 @@ bool Xgen::XgCreateNextTriangle(int &A, int &B, int &C,
           //break;
         }
       }                
-    }                 
-    REMOVE_BDY_PTS_ACTIVE = false;
-    if(was_deleted > 0) printf("Deleted %d points, %d grid points, %d interior.\n",
-      was_deleted, Npoin, InteriorPtsNum);
-  }
+    }
+  }                 
+  this->Removal_of_boundary_points_needed = false;
+  if(was_deleted > 0) printf("Deleted %d points, %d grid points, %d interior.\n", was_deleted, Npoin, InteriorPtsNum);
+}
 
+bool Xgen::XgCreateNextTriangle(int &A, int &B, int &C, 
+                                double &AB_angle, double &CA_angle, double &BC_angle, bool &finished) 
+{
+  finished = false;
+
+  // At first call, go through all boundary edges and remove points which 
+  // are too close to the boundary.
+  if(this->Removal_of_boundary_points_needed) XgRemoveBoundaryPoints();
+
+  // take last vertex pair (edge) from the list of boundary pairs
   BPL->GetLast(A, B, AB_angle);
+  //BPL->Init();
+  //BPL->GetNext(A, B, AB_angle);
 
-  //printf("Looking for nearest point C on the left of edge (%d %d), central angle %g\n", A, B, AB_angle);
-  if(!FindNearestLeft(A, B, C)) {
-    printf("FindNearestLeft() failed.\n");
+  // Finds the nearest point C on the left of AB that produces an 
+  // admissible triangle ABC. Admissible means that edges AC and BC
+  // do not intersect the boundary, that ABC does not contain any 
+  // boundary point, etc. 
+  if(!FindAdmissibleThirdVertex(A, B, C)) {
+    printf("FindAdmissibleThirdVertex() failed.\n");
     return false;
   }
-  //printf("Found C = %d\n", C);
 
   if (BPL->Delete(C, A, CA_angle)) {
     //printf("Deleted edge (%d %d), angle %g\n", C, A, CA_angle);
     if (BPL->Delete(B, C, BC_angle)) BPL->DeleteLast();
     else {
-      BPL->ChangeLast(C, B);
+      BPL->Change(BPL->Last, C, B);
       BC_angle = 0;
       //printf("Last edge changed to (%d %d), angle %g\n", C, B, BC_angle);
     }
   }
   else {
-    BPL->ChangeLast(A, C);
+    BPL->Change(BPL->Last, A, C);
     CA_angle = 0;
     //printf("Last edge changed to (%d %d), angle %g\n", A, C, CA_angle);
     if (!BPL->Delete(B, C, BC_angle)) {
@@ -1022,6 +1029,7 @@ bool Xgen::XgMouseAdd(Point p) {
   IterationPtr=BoundaryPtsNum;
   printf("Point at [%g, %g] added to the end of the list, %d grid points, %d interior.\n", 
     p.x, p.y, Npoin, InteriorPtsNum);
+  this->Removal_of_boundary_points_needed = true;
   return true;
 }
 
@@ -1198,7 +1206,7 @@ void Xgen::XgInit(char *cfg_filename) {
   // Constructing boundary -- the geometrical curve. Circular
   // arcs are approxmated by small linear abscissas. This list 
   // does not change during meshing. 
-  BLL = Boundary.CreateBoundaryLinesList(this->H);
+  BLL = Boundary.CreateBoundaryLinesList();
 
   // Printing info.
   printf("Boundary length = %g\n", length);
@@ -1259,7 +1267,7 @@ void Xgen::XgInit(char *cfg_filename) {
   // Copying boundary points to the beginning of the point list.
   Points = (Point*)malloc((Npoin + Nstore)*sizeof(Point)); 
   if(Points == NULL) XgError("Not enough memory for points.");                                         
-  else for(int i = 0; i<BoundaryPtsNum; i++) Points[i] = PL->Delete();
+  else for(int i = 0; i<BoundaryPtsNum; i++) Points[i] = PL->DeleteAll();
 
   // Setting initial points either randomly or 
   // using an equidistributed regular pattern.
@@ -1306,6 +1314,7 @@ void Xgen::XgSetTimestep(double init_timestep) {
 
 void Xgen::XgCreateNewBoundaryComponent() {
   Boundary.CreateNewBoundaryComponent();
+  this->BdyComponentsNum++;
 }
 
 void Xgen::XgAddBoundarySegment(int marker, double x, double y, int subdiv, double alpha) {
@@ -1449,6 +1458,32 @@ bool Xgen::IsInside(Point &P) {
   else return true;
 }
 
+/* SHOULD BE BETTER THAN THE OLD WAY BUT DOES NOT WORK WELL
+bool ccw(Point A, Point B, Point C) {
+  return (C.y - A.y)*(B.x - A.x) > (B.y - A.y)*(C.x - A.x);
+}
+
+bool Xgen::EdgesIntersect(Point A, Point B, Point C, Point D) {
+  Point AC, BC, AD, BD;
+  AC = C - A;
+  AD = D - A;
+  BC = C - B;
+  BD = D - B;
+  // endpoint-to-endpoint contact does not count as intersection
+  if (AC.abs() < XG_ZERO || AD.abs() < XG_ZERO || BC.abs() < XG_ZERO || BD.abs() < XG_ZERO) {
+    //printf("EdgesIntersect: End points met (%g %g) (%g %g) (%g %g) (%g %g)\n", A.x, A.y, B.x, B.y, C.x, C.y, D.x, D.y);
+    return false;
+  }
+  // check for all other situations
+  bool intersect = (ccw(A, C, D) != ccw(B, C, D)) && (ccw(A, B, C) != ccw(A, B, D));
+  if (intersect) {
+    //printf("EdgesIntersect: Intersection (%g %g) (%g %g) (%g %g) (%g %g)\n", A.x, A.y, B.x, B.y, C.x, C.y, D.x, D.y);
+  }
+  return intersect;
+}
+*/
+
+// OLD WAY
 bool Xgen::EdgesIntersect(Point a, Point b, Point c, Point d) 
 {
   double p, t, s;
@@ -1511,7 +1546,7 @@ bool Xgen::XgIsBoundaryEdge(int a, int b)
   return false;
 }
 
-bool Xgen::FindNearestLeft(int A, int B, int &wanted) 
+bool Xgen::FindAdmissibleThirdVertex(int A, int B, int &wanted) 
 {
   double m, Min;
   long int wanted0 = -1;
@@ -1519,29 +1554,52 @@ bool Xgen::FindNearestLeft(int A, int B, int &wanted)
   for (int C = 0; C < Npoin; C++) {
     if (C != A && C != B) {
       if (IsLeft(Points[A], Points[B], Points[C])) {
-        //printf("Probing C = %d\n", C); 
         m = XgCriterion(Points[A], Points[B], Points[C]);
-        //printf("   criterion %g (Min = %g)\n", m, Min); 
+        //printf("Probing point %d, criterion %g (Min = %g)\n", C, m, Min);
         if(m < Min) {
-          //printf("   checking whether C is inside or whether it is a boundary vertex:\n"); 
           if(IsInside(Points[C]) || BPL->Contains(C)) {
-            //printf("Yes\nChecking intersection with boundary:\n");
-            bool intersects = false;
-            if (XgIsBoundaryEdge(A, C)) intersects = false;
-            else {
+            //printf("Checking intersection of triangle (%d %d %d) with boundary:\n", A, B, C);
+            bool bdy_intersect = false;
+            //printf("Checking intersection of edge (%d %d) with boundary:\n", A, C);
+            if (!XgIsBoundaryEdge(A, C)) {
               if (BoundaryIntersectionCheck(Points[A], Points[C])) {
-                intersects = true;
+                bdy_intersect = true;
                 //printf("Edge (%d %d) intersects with boundary.\n", A, C);
               }
             }
-            if (XgIsBoundaryEdge(B, C)) intersects = false;
-            else {
+            if (!bdy_intersect && !XgIsBoundaryEdge(B, C)) {
+              //printf("Checking intersection of edge (%d %d) with boundary:\n", B, C);
               if (BoundaryIntersectionCheck(Points[B], Points[C])) {
-                intersects = true;
+                bdy_intersect = true;
                 //printf("Edge (%d %d) intersects with boundary.\n", B, C);
               }
             }
-            if (intersects == false) {
+
+            // if BdyComponentsNum > 1 we also need to check that ABC does not contain any 
+            // boundary vertex (to avoid an entire closed boundary loop inside ABC)
+            bool contains_bdy_vertex = false;
+            if (this->BdyComponentsNum > 1) {
+              this->XgInitPointList();
+              //int pts_num = this->XgGiveBoundaryPtsNum();
+              int pts_num = this->Npoin;
+              for (int i=0; i < pts_num; i++) {
+                if (i == A || i == B || i == C) continue;
+                // is p in triangle ABC?
+                Point P;
+                P = this->Points[i];
+                if (IsLeft(Points[A], Points[B], P) && IsLeft(Points[B], Points[C], P) && 
+                    IsLeft(Points[C], Points[A], P)) {
+                  contains_bdy_vertex = true;
+                  //printf("A = (%g %g), B = (%g %g), C = (%g %g), P = (%g %g)", 
+                  //  Points[A].x, Points[A].y, Points[B].x, Points[B].y, Points[C].x, Points[C].y, P.x, P.y);
+                  //printf("Triangle %d %d %d contains a boundary vertex.\n", A, B, C);
+                  break;
+                }
+              }
+            }
+ 
+            // the vertex is admissible, go ahead and return it
+            if (!bdy_intersect && !contains_bdy_vertex) {
               double vol = TriaVolume(Points[A], Points[B], Points[C]);
               if (vol > XG_ZERO) {
   	        Min = m;
@@ -1551,7 +1609,12 @@ bool Xgen::FindNearestLeft(int A, int B, int &wanted)
             }
           }
         }
-      }
+      } //else {
+        //printf("A = (%g %g)\n", Points[A].x, Points[A].y);
+        //printf("B = (%g %g)\n", Points[B].x, Points[B].y);
+        //printf("C = (%g %g)\n", Points[C].x, Points[C].y);
+        //printf("Point %d is not left of (%d %d)\n", C, A, B);
+      //}
     }
   }
   if(wanted0 < 0) return false;

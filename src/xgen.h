@@ -99,9 +99,9 @@ struct BoundaryPairsList {
   void Add(int a, int b, double alp);
   bool Delete(int a, int b, double &alp);
   void DeleteLast();
-  void Delete();
+  void DeleteAll();
   void GetLast(int &a, int &b, double &alp) {a = Last->A; b = Last->B; alp = Last->alpha;}
-  void ChangeLast(int a, int b);
+  void Change(BoundaryPair* pair, int a, int b);
   bool IsEmpty() {return (First == NULL) ? true : false;}
 };
 
@@ -124,8 +124,8 @@ struct BoundaryLinesList {
   bool GetNext(Point &a, Point &b);
   void DeleteLast();
   void AddStraightLine(Point a, Point b);
-  void AddCircularArc(Point a, Point b, double angle, double H); // H is average edge length.
-  void Delete();
+  void AddCircularArc(Point a, Point b, double angle, int subdiv);
+  void DeleteAll();
 };
 
 // Serves for output to mesh file and for checking whether 
@@ -138,7 +138,7 @@ struct BoundaryEdgeList {
   bool GetNext(BoundaryEdge &I);
   void Add(int a, int b, int component_index, int marker, double alpha);
   void DeleteLast();
-  void Delete();
+  void DeleteAll();
 };
 
 struct ElemBox {
@@ -162,7 +162,7 @@ struct ElemList {
   void Init() {Ptr = First;}
   bool GetNext(int &a, int &b, int &c, double &ab, double &ac, double &bc);
   void Add(int a, int b, int c, double ab, double ac, double bc);
-  void Delete();
+  void DeleteAll();
   ~ElemList();
 };
 
@@ -180,7 +180,7 @@ struct PointList {
   bool GetNext(int i, double &pos_x, double &pos_y);
   void Add(Point P);
   void Add(double pos_x, double pos_y);
-  Point Delete();
+  Point DeleteAll();
 };  
 
 struct BoundaryComponent {
@@ -204,7 +204,7 @@ struct BoundaryType {
   void CreateNewBoundaryComponent();
   void AddBoundarySegment(int marker, double x, double y, int subdiv, double alpha);
   BoundaryPairsList *CreateBoundaryPairsList();
-  BoundaryLinesList *CreateBoundaryLinesList(double H); // H is average mesh edge length.
+  BoundaryLinesList *CreateBoundaryLinesList();
   PointList *CreateBoundaryPointList();
   BoundaryEdgeList *CreateBoundaryEdgeList();
   void CalculateLength();
@@ -258,6 +258,7 @@ class Xgen {
   void XgInputPoints(FILE *f, int *error, int *mem);
   void XgOutputPoints(FILE *f);
   void XgOutput(FILE *f);
+  void XgRemoveBoundaryPoints();
   bool XgCreateNextTriangle(int &A, int &B, int &C, double &AB_angle, 
                             double &AC_angle, double &BC_angle, bool &finished);
   void XgNextShift(Point *p_old, Point *p_new);
@@ -290,6 +291,8 @@ class Xgen {
   Point* Points; 
 
   private:
+  int BdyComponentsNum;
+  bool Removal_of_boundary_points_needed;
   double H, DeltaT, TimestepConst; int Nstore;
   char *Name; int Dimension; int InteriorPtsNum, 
   BoundaryPtsNum, Npoin, Nelem; BoundaryType Boundary;
@@ -302,14 +305,14 @@ class Xgen {
   Ymin, Area, First_DeltaT; int GoThroughPointsPtr, 
   RedrawInteriorPtr, IterationPtr, First_Npoin, First_Nstore;
   void Shift(int i, Point Impuls);
-  bool FindNearestLeft(int A, int B, int &wanted);
+  bool FindAdmissibleThirdVertex(int A, int B, int &wanted);
   Point GetImpuls(int i);
   Point GiveImpuls(int i, int j);
   bool IsInside(Point &P);
   bool BoundaryIntersectionCheck(Point a, Point b);
   bool EdgesIntersect(Point a, Point b, Point c, Point d);
-  bool IsLeft(Point A, Point B, Point C);
-  bool IsRight(Point A, Point B, Point C);
+  bool IsLeft(Point A, Point B, Point C);  // checks whether C is on the left of AB
+  bool IsRight(Point A, Point B, Point C); // checks whether C is on the right of AB
 };
 
 // Calling Motif:

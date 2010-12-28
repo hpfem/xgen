@@ -7,8 +7,7 @@
 # include <strings.h>
 
 /** 
- **   simple example applications
- **   29.6.1995, Prague
+ **   simple sample applications
  **/
 
 # include "xgen.h"
@@ -16,11 +15,14 @@
 
 /*
  *   class xsquare:
+ *   unit square whose edges are subdivided into N intervals
+ *   boundary does not contain circular arcs
  */
 
 class xsquare: public Xgen {
   public:
-  xsquare(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
+  xsquare(char *cfg_filename, bool nogui, int nsteps, bool overlay) 
+          : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
@@ -36,123 +38,155 @@ void xsquare::XgReadData(FILE *f) {
 
 /*
  *   class xhole:
+ *   rectangular domain containing a circular hole
+ *   boundary contains circular arcs
  */
 
 class xhole: public Xgen {
   public:
-  xhole(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
+  xhole(char *cfg_filename, bool nogui, int nsteps, bool overlay) 
+        : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
 void xhole::XgReadData(FILE *f) {
-  double H;
-  if(!Get(f, &H)) XgError("Couldn't read H.");
+  double length, height, center_x, center_y, radius;
+  int subdiv_height; 
+  if(!Get(f, &length)) XgError("Couldn't read domain length.");
+  if(!Get(f, &height)) XgError("Couldn't read domain height.");
+  if(!Get(f, &center_x)) XgError("Couldn't read circle center coordinate.");
+  if(!Get(f, &center_y)) XgError("Couldn't read circle center coordinate.");
+  if(!Get(f, &radius)) XgError("Couldn't read circle radius.");
+  if(!Get(f, &subdiv_height)) XgError("Couldn't read subdivision.");
 
-  double R;
-  if(!Get(f, &R)) XgError("Couldn't read R.");
-  int N2 = (int)(2*M_PI*R + 0.5); 
+  int subdiv_length = (int) (length / height * subdiv_height + 0.5);
+  double half_perimeter = M_PI*radius;
+  int subdiv_half_circle = (int) (half_perimeter / height * subdiv_height + 0.5);
 
-  int N;
+  // outer rectangle
   double alpha = 0;
-  if(!Get(f, &N)) XgError("Couldn't read N.");
-  XgAddBoundarySegment(3, 0, 0, 2*N, alpha);
-  XgAddBoundarySegment(2, 1.5*N*H, 0, N, alpha);
-  XgAddBoundarySegment(4, 1.5*N*H, N*H, 2*N, alpha);
-  XgAddBoundarySegment(1, 0, N*H, N, alpha);
+  XgAddBoundarySegment(3, 0, 0, subdiv_length, alpha);
+  XgAddBoundarySegment(2, length, 0, subdiv_height, alpha);
+  XgAddBoundarySegment(4, length, height, subdiv_length, alpha);
+  XgAddBoundarySegment(1, 0, height, subdiv_height, alpha);
+
+  // closing the loop
   XgCreateNewBoundaryComponent();
-  for(int i=0; i<N2; i++) {
-    XgAddBoundarySegment(5, 0.5*H*N + R*H*cos(i*2*M_PI/N2), 0.5*H*N - R*H*sin(i*2*M_PI/N2), 1, alpha);
-  }
+
+  // circle as two segments
+  alpha = -180;
+  XgAddBoundarySegment(5, center_x, center_y - radius, subdiv_half_circle, alpha);
+  XgAddBoundarySegment(5, center_x, center_y + radius, subdiv_half_circle, alpha);
 }
 
 /*
  *   class xcirc:
+ *   domain spans the area between two concentric circles
+ *   boundary contains circular arcs
  */
 
 class xcirc: public Xgen {
   public:
-  xcirc(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
+  xcirc(char *cfg_filename, bool nogui, int nsteps, bool overlay) 
+        : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
 void xcirc::XgReadData(FILE *f) {
-  double Rout; int Nout; 
-  if(!Get(f, &Rout)) XgError("Couldn't read Rout.");
-  if(!Get(f, &Nout)) XgError("Couldn't read Nout.");
+  double r_ext, r_int;
+  int n_ext;
+  if(!Get(f, &r_ext)) XgError("Couldn't read radius of exterior circle.");
+  if(!Get(f, &n_ext)) XgError("Couldn't read division of exterior circle.");
+  if(!Get(f, &r_int)) XgError("Couldn't read radius of interior circle.");
+  int n_int = (int)(r_int / r_ext * n_ext + 0.5);
 
-  double alpha = 0;
-  for(int i=0; i<Nout; i++) {
-    XgAddBoundarySegment(1, Rout*cos(i*2*M_PI/Nout), Rout*sin(i*2*M_PI/Nout), 1, alpha);
-  }
+  // outer circle as two segments
+  double alpha = 180.;
+  XgAddBoundarySegment(1, 0, 0 - r_ext, n_ext / 2, alpha);
+  XgAddBoundarySegment(1, 0, 0 + r_ext, n_ext / 2, alpha);
 
-  double H = 2*M_PI*Rout/Nout;
-
-  double Rins;
-  if(!Get(f, &Rins)) XgError("Couldn't read Rins.");
-  int Nins = (int)(2*M_PI*Rins/H + 0.5);
-
+  // closing the loop
   XgCreateNewBoundaryComponent();
-  for(int i=0; i<Nins; i++) {
-    XgAddBoundarySegment(2, Rins*cos(i*2*M_PI/Nins), -Rins*sin(i*2*M_PI/Nins), 1, alpha);
-  }
+
+  // interior circle as two segments
+  alpha = -180.;
+  XgAddBoundarySegment(2, 0, 0 - r_int, n_int / 2, alpha);
+  XgAddBoundarySegment(2, 0, 0 + r_int, n_int / 2, alpha);
 }
 
 /*
- *   class xgamm:
+ *   class xgamm: 
+ *   represents a rectangular channel with a circular hump on the bottom
+ *   boundary contains circular arcs
  */
 
 class xgamm: public Xgen {
   public:
-  xgamm(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
+  xgamm(char *cfg_filename, bool nogui, int nsteps, bool overlay) 
+        : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
 void xgamm::XgReadData(FILE *f) {
-  double H;
-  if(!Get(f, &H)) XgError("Couldn't read H.");
+  double domain_height, length_front, length_hump, length_back, hump_central_angle;
+  int inlet_division;
+  if(!Get(f, &domain_height)) XgError("Couldn't read domain_height.");
+  if(!Get(f, &inlet_division)) XgError("Couldn't read inlet_division.");
+  if(!Get(f, &length_front)) XgError("Couldn't read length_front.");
+  if(!Get(f, &length_hump)) XgError("Couldn't read length_hump.");
+  if(!Get(f, &hump_central_angle)) XgError("Couldn't read hump_central_angle.");
+  if(!Get(f, &length_back)) XgError("Couldn't read length_back.");
 
-  int N1, N2, N3, N4; double X5;
-  if(!Get(f, &N1)) XgError("Couldn't read N1.");
-  if(!Get(f, &N2)) XgError("Couldn't read N2.");
-  if(!Get(f, &N3)) XgError("Couldn't read N3.");
-  if(!Get(f, &N4)) XgError("Couldn't read N4.");
-  if(!Get(f, &X5)) XgError("Couldn't read X5.");
+  double h = domain_height / inlet_division;
+  int n_front = (int) (length_front / h + 0.5);
+  int n_hump = (int) (length_hump / h + 0.5);
+  int n_back = (int) (length_back / h + 0.5);
 
-  double k = (0.125*N3*N3/X5 - 0.5*X5)*H;
-  double r = k + X5*H;
-
+  // straight segment in front of hump
   double alpha = 0;
-  XgAddBoundarySegment(3, 0, 0, N2, alpha);
-  for(int i=0; i<N3; i++) {
-    double x = (i - 0.5*N3)*H;
-    XgAddBoundarySegment(3, (N2+i)*H, sqrt(r*r - x*x) - k, 1, alpha);
-  }
-  XgAddBoundarySegment(3, (N2+N3)*H, 0, N4, alpha);
-  XgAddBoundarySegment(2, (N2+N3+N4)*H, 0, N1, alpha);
-  XgAddBoundarySegment(4, (N2+N3+N4)*H, N1*H, N2+N3+N4, alpha);
-  XgAddBoundarySegment(1, 0, N1*H, N1, alpha);
+  XgAddBoundarySegment(3, 0, 0, n_front, alpha);
+  // hump
+  alpha = -hump_central_angle;
+  XgAddBoundarySegment(3, length_front, 0, n_hump, alpha);
+  // straight segment behind hump
+  alpha = 0;
+  XgAddBoundarySegment(3, length_front + length_hump, 0, n_back, alpha);
+  // vertical edge on the right
+  alpha = 0;
+  XgAddBoundarySegment(2, length_front + length_hump + length_back, 0, inlet_division, alpha);
+  // ceiling
+  alpha = 0;
+  XgAddBoundarySegment(4, length_front + length_hump + length_back, domain_height, 
+                       n_front + n_back + n_back, alpha);
+  // vertical edge on the left (inlet)
+  alpha = 0;
+  XgAddBoundarySegment(1, 0, domain_height, inlet_division, alpha);
+ 
 }
 
 /*
  *   class xstep:
+ *   forward facing step
+ *   only contains straight lines
  */
 
 class xstep: public Xgen {
   public:
-  xstep(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
+  xstep(char *cfg_filename, bool nogui, int nsteps, bool overlay) 
+        : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
 void xstep::XgReadData(FILE *f) {
   double H;
-  if(!Get(f, &H)) XgError("Couldn't read H.");
-
   int N1, N2, N3, N4;
+  if(!Get(f, &H)) XgError("Couldn't read H.");
   if(!Get(f, &N1)) XgError("Couldn't read N1.");
   if(!Get(f, &N2)) XgError("Couldn't read N2.");
   if(!Get(f, &N3)) XgError("Couldn't read N3.");
   if(!Get(f, &N4)) XgError("Couldn't read N4.");
 
+  // boundary is just one loop
   double alpha = 0;
   XgAddBoundarySegment(3, 0, 0, N2, alpha);
   XgAddBoundarySegment(3, N2*H, 0, N1-N4, alpha);
@@ -164,6 +198,8 @@ void xstep::XgReadData(FILE *f) {
 
 /*
  *   class xlist:
+ *   general polygonal domain with possibly curved edges
+ *   see cfg/xlist_curved_6.cfg for an example of input file
  */
 
 class xlist: public Xgen {
@@ -188,7 +224,10 @@ void xlist::XgReadData(FILE *f) {
     if(!Get(f, &a.y)) XgError("Couldn't read a point.");
     if(!Get(f, &subdiv)) XgError("Couldn't read a subdivision number.");
     if(!Get(f, &alpha)) XgError("Couldn't read a boundary segment's angle.");
+
+    // closing the loop
     XgCreateNewBoundaryComponent();
+
     XgAddBoundarySegment(marker, a.x, a.y, subdiv, alpha);
     c = a;
     while(end = !Get(f, test), (end || test[0] == '=') ? 0:1) {
@@ -202,196 +241,6 @@ void xlist::XgReadData(FILE *f) {
     } 
   }
 }
-
-/*
- *   class xnozzle:
- */
-
-double Radius(double x) {
-  //NOTE: this function defines the radius r(x) of the nozzle
-
-  //YOUR DEFINITION OF THE RADIUS
-  double radius;
-
-  radius = -sin(M_PI*10.*x)/250 + x/100. + 0.01;
-  if(x >= -0.05 && x < 0.05) 
-     radius = -cos(M_PI*10.*(x-0.05))/50 + 0.0265; //+ 0.0165;
-
-  //END OF YOUR RADIUS DEFINITION
-
-  return radius;
-}
-
-class xnozzle: public Xgen {
-  public:
-  xnozzle(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
-  virtual void XgReadData(FILE *f);
-};
-
-void xnozzle::XgReadData(FILE *f) {
-  int N;
-  double x_left, x_right;
- 
-  if(!Get(f, &x_left)) XgError("Couldn't read x_left.");
-  if(x_left >= 0.05) XgError("x_left must be < 0.05");
-
-  if(!Get(f, &x_right)) XgError("Couldn't read x_right.");
-  if(x_right <= 0.05) XgError("x_right must be > 0.05");
-
-  if(!Get(f, &N)) XgError("Couldn't read N.");
-
-  //number of inlet abscissas
-  int N1;
-  N1 = (int)(N*Radius(x_left)/(x_right - x_left) + 0.5);
-
-  //number of outlet abscissas
-  int N2;
-  N2 = (int)(N*Radius(x_right)/(x_right - x_left) + 0.5);
-
-  double alpha = 0;
-  XgAddBoundarySegment(4, x_left, 0, N, alpha);
-  XgAddBoundarySegment(3, x_right, 0, N2, alpha);
-  for(int i=N; i>0; i--) {
-    double x;
-    x = x_left + (double)i*(x_right - x_left)/N;
-    XgAddBoundarySegment(4, x, Radius(x), 1, alpha);
-  }
-  XgAddBoundarySegment(1, x_left, Radius(x_left), N1, alpha);
-}
-
-class xspir2d: public Xgen {
-  public:
-  xspir2d(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
-  virtual void XgReadData(FILE *f);
-};
-
-void xspir2d::XgReadData(FILE *f) {
-  double x_left = 0, x_right = 2;
- 
-  //division in the x-direction
-  int Nx;
-  if(!Get(f, &Nx)) XgError("Couldn't read Nx.");
-
-  //number of inlet abscissas
-  int Ny;
-  Ny = Nx/4;
-
-  //definition of the shape
-  double alpha = 0;
-  double hx = (x_right - x_left)/Nx;
-  double x;
-  for(int i=0; i<Nx; i++) {
-    x = x_left + i*hx;
-    //printf("starting point %g, %g\n", x, 0.25*cos(M_PI*x));
-    XgAddBoundarySegment(3, x, 0.25*cos(M_PI*x), 1, alpha);
-  }
-  x = x_right;
-  //printf("starting point %g, %g\n", x, 0.25*cos(M_PI*x));
-  XgAddBoundarySegment(2, x_right, 0.25*cos(M_PI*x_right), Ny, alpha);
-  for(int i=Nx; i>0; i--) {
-    x = x_left + i*hx;
-    //printf("starting point %g, %g\n", x, 0.25*cos(M_PI*x));
-    XgAddBoundarySegment(4, x, 0.25*cos(M_PI*x) + 0.5, 1, alpha);
-  }
-  x = x_left;
-  //printf("starting point %g, %g\n", x, 0.25*cos(M_PI*x) + 0.5);
-  XgAddBoundarySegment(1, x, 0.25*cos(M_PI*x) + 0.5, Ny, alpha);
-}
-
-double sep_low(double x) {
-  return 0.2*x*cos(M_PI*x) + x/10;
-}
-
-double sep_up(double x) {
-  return 0.2*cos(M_PI*x-0.2) + 0.4 + x/10;
-}
-
-class xsep2d: public Xgen {
-  public:
-  xsep2d(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
-  virtual void XgReadData(FILE *f);
-};
-
-void xsep2d::XgReadData(FILE *f) {
-  double x_left = 0.2, x_right = 2.1;
- 
-  //division in the x-direction
-  int Nx;
-  if(!Get(f, &Nx)) XgError("Couldn't read Nx.");
-
-  //number of inlet abscissas
-  int Ny1;
-  Ny1 = (int)(Nx*(sep_up(x_left) - sep_low(x_left))/(x_right - x_left) + 0.5);
-
-  //number of outlet abscissas
-  int Ny2;
-  Ny2 = (int)(Nx*(sep_up(x_right) - sep_low(x_right))/(x_right - x_left) + 0.5);
-
-  //definition of the shape
-  double hx = (x_right - x_left)/Nx;
-  double x;
-  double alpha = 0;
-  for(int i=0; i<Nx; i++) {
-    x = x_left + i*hx;
-    //printf("starting point %g, %g\n", x, sep_low(x));
-    XgAddBoundarySegment(3, x, sep_low(x), 1, alpha);
-  }
-  x = x_right;
-  //printf("corner x_left low %g, %g\n", x_left, sep_low(x_left));
-  //printf("corner x_left up%g, %g\n", x_left, sep_up(x_left));
-  //printf("corner x_right low %g, %g\n", x_right, sep_low(x_right));
-  //printf("corner x_right up  %g, %g\n", x_right, sep_up(x_right));
-  XgAddBoundarySegment(2, x_right, sep_low(x), Ny2, alpha);
-  for(int i=Nx; i>0; i--) {
-    x = x_left + i*hx;
-    //printf("starting point %g, %g\n", x, sep_up(x));
-    XgAddBoundarySegment(4, x, sep_up(x), 1, alpha);
-  }
-  x = x_left;
-  //printf("starting point %g, %g\n", x, sep_up(x));
-  XgAddBoundarySegment(1, x, sep_up(x), Ny1, alpha);
-}
-
-/*
- *   class xsquare_circ:
- */
-
-class xsquare_circ: public Xgen {
-  public:
-  xsquare_circ(char *cfg_filename, bool nogui, int nsteps, bool overlay) : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
-  virtual void XgReadData(FILE *f);
-};
-
-void xsquare_circ::XgReadData(FILE *f) {
-  double A;  // horizontal length
-  double B;  // vertical length
-  double S1; // x-coordinate of circle midpoint
-  double S2; // y-coordinate of circle midpoint
-  double R;  // radius of circle
-  int N;     // division of circle
-  if(!Get(f, &A)) XgError("Couldn't read A (rectangle width).");
-  if(!Get(f, &B)) XgError("Couldn't read B (rectangle height).");
-  if(!Get(f, &S1)) XgError("Couldn't read S1 (circle center x-coordinate).");
-  if(!Get(f, &S2)) XgError("Couldn't read S2 (circle center y-coordinate).");
-  if(!Get(f, &R)) XgError("Couldn't read R (circle radous).");
-  if(!Get(f, &N)) XgError("Couldn't read N (circle subdivision).");
-  double h = 2*M_PI*R / N;
-  int NA = (int) (A / h + 0.5);
-  int NB = (int) (B / h + 0.5);
-  double alpha = 0;
-  XgAddBoundarySegment(1, 0, 0, NA, alpha);
-  XgAddBoundarySegment(2, A, 0, NB, alpha);
-  XgAddBoundarySegment(3, A, B, NA, alpha);
-  XgAddBoundarySegment(4, 0, B, NB, alpha);
-
-  XgCreateNewBoundaryComponent();
-  for(int i = 0; i < N; i++) {
-    XgAddBoundarySegment(5, S1 + R * cos(i*2*M_PI/N), 
-		    S2 - R * sin(i*2*M_PI/N), 1, alpha);
-  }
-
-}
-
 
 /* PROGRAM BODY*/
 
@@ -465,22 +314,6 @@ main(int argc, char *argv[]) {
   }
   if(!strcmp(argv[1], "xlist")) {
     xlist X(argv[2], nogui, nsteps, overlay);
-    XgMainLoop(&X, argc, argv);
-  }
-  if(!strcmp(argv[1], "xnozzle")) {
-    xnozzle X(argv[2], nogui, nsteps, overlay);
-    XgMainLoop(&X, argc, argv);
-  }
-  if(!strcmp(argv[1], "xspir2d")) {
-    xspir2d X(argv[2], nogui, nsteps, overlay);
-    XgMainLoop(&X, argc, argv);
-  }
-  if(!strcmp(argv[1], "xsep2d")) {
-    xsep2d X(argv[2], nogui, nsteps, overlay);
-    XgMainLoop(&X, argc, argv);
-  }
-  if(!strcmp(argv[1], "xsquare_circ")) {
-    xsquare_circ X(argv[2], nogui, nsteps, overlay);
     XgMainLoop(&X, argc, argv);
   }
   printf("Unknown application name.\n");
