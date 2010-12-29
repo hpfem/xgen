@@ -19,8 +19,7 @@
 
     {\Huge  XGEN}\\[6mm]
 
-Simple triangular mesh generator based on the Advanced Front method,\\
-implemented in X-Windows using the Motif library.
+A simple generator of uniform unstructured triangular meshes.
 
     \vspace{20mm}
 
@@ -55,7 +54,7 @@ implemented in X-Windows using the Motif library.
 \noindent
 \normalsize
   After that, change dir to xgen/ and build XGEN by typing ``make''. The present 
-  Makefile works for Ubuntu Linux, but it should work on other Linux and Unix 
+  Makefile works for Ubuntu, but it should work on other Linux and Unix 
   platforms with no or minor modifications. Finally, check that XGEN works
   properly by typing 
  \noindent
@@ -70,11 +69,17 @@ should appear. Press the "Mesh" button to create a mesh.
 
   \section{Introduction}
 
-  XGEN makes it possible to generate unstructured
-  triangular grids on arbitrary polygonal domains. The user enters 
-  a positively (= counter clock-wise) oriented boundary. Holes must 
-  be oriented clock-wise. XGEN then calculates the area of the domain, and 
-  throws inside an appropriate number of random points (Fig. \ref{fig:random}).
+  XGEN is a simple but very robust generator of unstructured
+  triangular meshes. It can operate both in interactive and batch modes.
+  The geometry is entered as a positively (counter clock-wise) oriented 
+  polygon that consists of straight line segments and/or circular arcs. Holes 
+  must be oriented clock-wise. If circular arcs are present, then the resulting 
+  mesh will contain curved elements.
+  
+  \subsection{Interactive mode}
+
+  After the domain is defined, XGEN calculates its area and throws inside an 
+  appropriate number of random points (Fig. \ref{fig:random}).
 
 \newpage
 
@@ -97,26 +102,34 @@ until an equilibrium is reached  (Fig. \ref{fig:equil}).
   \vspace{-6mm}
   \caption{An ``electrostatic'' simulation is run to reach a local equilibrium.}
   \label{fig:equil}
-\vspace{-1cm}
+%\vspace{-1cm}
   \end{figure}
 
-\newpage
 \noindent
-Alternativel;y, the user can choose a regular overlay pattern (Fig. \ref{fig:overlay}). 
+Alternatively, the user can choose a regular overlay pattern by calling XGEN with 
+the ``-overlay'' option:
+
+\begin{verbatim}
+./xgen xgamm cfg/xgamm.cfg -overlay
+\end{verbatim}
+In interactive mode, the same can be achieved through the Init $\rightarrow$ Overlay
+buttons. The overlay pattern is illustrated in Fig. \ref{fig:overlay}. 
+
+\newpage
 
   \begin{figure}[!ht]
   \begin{center}
   \includegraphics[width=0.8\textwidth]{xgen-1.png}
   \end{center}
   \vspace{-6mm}
-  \caption{Overlay points obtained via Init $\rightarrow$ Overlay.}
+  \caption{Overlay points.}
   \label{fig:overlay}
   \end{figure}
 \noindent 
-  The user can add and remove points using the left and middle  
+  In interactive mode, the user can add and remove points using the left and middle  
   (or the right button for the two-button mouse) mouse click,
   respectively. Mesh can be generated at any time by pressing the Mesh button.
-  The Menu button launches a menu with several self-explanatory functions
+  The Menu button launches a menu with several functions
   (Fig. \ref{fig:menu}). 
 
   \begin{figure}[!ht]
@@ -127,164 +140,245 @@ Alternativel;y, the user can choose a regular overlay pattern (Fig. \ref{fig:ove
   \caption{XGEN menu.}
   \label{fig:menu}
   \end{figure}
-\noindent 
+
+\subsection{Batch mode}
+
+XGEN can be run in batch mode using the option "-nogui N" where N is the number 
+of smoothing iterations over grid points (time steps of the electrostatic 
+simulation). For example, 
+
+\begin{verbatim}
+./xgen xgamm cfg/xgamm.cfg -nogui 100 -overlay
+\end{verbatim}
+
+\noindent
+will use an initial uniform overlay pattern of grid points and 
+perform 100 smoothing steps. In batch mode, the mesh is saved to 
+the file "out.mesh".
+
+  \section{Defining Geometry via Segments}
+
+  The simplest way to enter a geometry is to prepare a text file 
+  that defines the boundary as a positively oriented list of 
+  straight lines and/or circular segments. Each segment is 
+  entered using 5 numbers: the boundary marker, the starting 
+  point, subdivision, and angle. If the angle is zero, the segment
+  is a straight line. Before entering a hole, one needs close the
+  current boundary component using the '=' symbol. The following 
+  file describes a square $(0, 3)^2$ with a circular hole of
+  radius $\sqrt{2}$ in its middle. 
+
+\begin{verbatim}
+# This is an XGEN cfg file to the class 'xlist'.
+# Edges list:
+# (boundary marker, x_start, y_start, subdivision, angle)
+1 0.0 0.0 10 0.0
+2 3.0 0.0 10 0.0
+3 3.0 3.0 10 0.0
+4 0.0 3.0 10 0.0
+
+# Symbol introducing new component.
+=
+
+# Holes must be negatively oriented.
+5 1.0 1.0 3 -90.0
+5 1.0 2.0 3 -90.0
+5 2.0 2.0 3 -90.0
+5 2.0 1.0 3 -90.0
+\end{verbatim}
+
+\noindent
+You can find this file in the repository under {\tt cfg/xlist\_hole.cfg}. XGEN is 
+then called as follows,
+
+\begin{verbatim}
+./xgen xlist cfg/xlist_hole.cfg
+\end{verbatim}
+The resulting mesh is shown in Fig. \ref{fig:7}.
+
+  \begin{figure}[!ht]
+  \begin{center}
+  \includegraphics[width=0.6\textwidth]{xgen-7.png}
+  \end{center}
+  \vspace{-6mm}
+  \caption{Sample geometry corresponding to the above input file.}
+  \label{fig:7}
+  \end{figure}
 
 
+  \section{Creating Custom Projects} \label{new-project}
 
+  In the previous section we saw how to enter the geometry 
+  via a positively oriented list of lines and/or circular arcs.
+  In fact, this was just one specific application (called "xlist")
+  that consists of less than 50 lines of code (incl. comments). 
 
-  \section{Creating a New Project} \label{new-project}
+  To create a custom project such as "xlixt", one needs to define 
+  a descendant of a basic class Xgen. Let us paste the 
+  code of the class "xlixt" here for illustration: 
 
-  To create a new project, the user has to write 
-  a few lines of a simple C++ code that define a new descendant of
-  a basic class Xgen. For example, let us create a class ``xsquare''
-  that will triangulate a square domain. Each edge of the square 
-  will be subdivided into 'N' equally long abscissas. To do this,
-  one needs to add the following code to the file src/xmain.cpp.
-  It was our design decision to have all projects in one file, and
-  the user can change this in any way he likes.
+\begin{verbatim}
+/*
+ *   class xlist:
+ *   general polygonal domain with possibly curved edges
+ *   see cfg/xlist_curved_6.cfg for an example of input file
+ */
 
-  \begin{verbatim}
-class xsquare: public Xgen {
+class xlist: public Xgen {
   public:
-  xsquare(char *cfg_filename) : Xgen() {XgInit(cfg_filename);}
+  xlist(char *cfg_filename, bool nogui, int nsteps, bool overlay) 
+        : Xgen(nogui, nsteps, overlay) {XgInit(cfg_filename);}
   virtual void XgReadData(FILE *f);
 };
 
-void xsquare::XgReadData(FILE *f) {
-  int N; 
-  if(!Get(f, &N)) XgError("Couldn't read N.");
-  XgAddEdge(3, 0, 0, N);
-  XgAddEdge(2, 1, 0, N);
-  XgAddEdge(4, 1, 1, N);
-  XgAddEdge(1, 0, 1, N);
+// Boundary edges have the following format:
+// <marker start_x, start_y, subdivision, angle>
+// where angle = 0 for straight edges and angle != 0 for curved.
+// New component is introduced with '='.
+void xlist::XgReadData(FILE *f) {
+  int marker, subdiv, end = 0;
+  Point a, b, c;
+  double angle;
+  char test[20];
+
+  while(Get(f, &marker)) {
+    if(!Get(f, &a.x)) XgError("Couldn't read a starting point.");
+    if(!Get(f, &a.y)) XgError("Couldn't read a starting point.");
+    if(!Get(f, &subdiv)) XgError("Couldn't read a subdivision number.");
+    if(!Get(f, &angle)) XgError("Couldn't read an angle.");
+
+    // Closing a boundary loop.
+    XgCreateNewBoundaryComponent();
+
+    XgAddBoundarySegment(marker, a.x, a.y, subdiv, angle);
+    c = a;
+    while(end = !Get(f, test), (end || test[0] == '=') ? false : true) {
+      marker = atoi(test);
+      if(!Get(f, &b.x)) XgError("Couldn't read a starting point.");
+      if(!Get(f, &b.y)) XgError("Couldn't read a starting point.");
+      if(!Get(f, &subdiv)) XgError("Couldn't read a subdivision number.");
+      if(!Get(f, &angle)) XgError("Couldn't read an angle.");
+      XgAddBoundarySegment(marker, b.x, b.y, subdiv, angle); 
+      a = b;
+    } 
+  }
 }
-  \end{verbatim}
-This tells XGEN to create a unit square domain with four edges. The first 
-  edge with boundary marker '3' starts at [0, 0] and ends at [1, 0] where 
-  the next one starts, is subdivided equidistantly into 'N' intervals. An 
-  edge ends where the next one starts and the end of the last edge is the 
-  starting point of the first one. Later we will learn how to create loops 
-  (holes) in the domain.\\
- 
+\end{verbatim}
+This code can be found in the file {\tt src/main.cpp} starting 
+with line 199. The method {\tt XgReadData()} reads data from 
+a user-supplied text file and uses an elementary function 
+
+\begin{verbatim}
+  XgAddBoundarySegment(marker, a.x, a.y, subdiv, alpha);
+\end{verbatim}
+to create an arbitrary geometry. The function {\tt XgAddBoundarySegment()}
+adds a new segment with boundary marker "marker", starting point "a", 
+subdivision "subdiv" and angle "alpha". New boundary component (loop) is
+created with
+
+\begin{verbatim}
+  XgCreateNewBoundaryComponent();
+\end{verbatim}
+
   \noindent
-  Then add the following three lines into the main() function of the 
-  file src/xmain.cpp, to make sure that the command-line parameter
-  "xsquare" is recognized by XGEN and associated with the class of
-  the same name:
+  After creating a new class, add the following three lines into 
+  the main() function of the file src/main.cpp, to make sure that 
+  the class' name can be used as a command-line parameter:
   \begin{verbatim}
-  if(!strcmp(argv[1], "xsquare")) {
-    xsquare X(argv[2]);
+  if(!strcmp(argv[1], "xlist")) {
+    xlist X(argv[2]);
     XgMainLoop(&X, argc, argv);
   }
   \end{verbatim}
-  That's it! Create in the directory cfg/ a file that contains a single 
-  integer number 'N', such as 
-  \begin{verbatim}  
-# This is an XGEN cfg file to project 'xsquare'.
-# Number of abscissas on each edge of the square:
-15
-  \end{verbatim}
-  Say that the name of this file is "xsquare.cfg". XGEN is run via
-  \begin{verbatim}
-  xgen xsquare cfg/xsquare.cfg
-  \end{verbatim}
-  \noindent
-  The user can use additional Motif options such as:
-
-  \begin{verbatim}  
-  xgen xsquare cfg/xsquare.cfg -bg lightgray -fg blue 
-  \end{verbatim}
-  See the Motif1.2 Reference Guide for a list of all possible options.\\
-
-  \noindent
-  A graphical window should be launched. The user can add and remove points using 
-  the left and middle mouse buttons, respectively. The roles of 
-  the buttons are self-explanatory. 
+  That's it! 
 
   \section{Mesh Output Format} \label{out_form}
 
-  XGEN writes meshes in Hermes2D native format (http://hpfem.org/hermes).
-  To override it, redefine the virtual method XgUserOutput().
+  By default, XGEN creates meshes in Hermes2D native format (http://hpfem. org/hermes).
+  This can be changed by overriding the virtual method {\tt XgUser Output()}.
+  The mesh with the circular hole generated in the previous 
+  section can be found in {\tt meshes/xlist\_hole.mesh}. The mesh 
+  file contains four parts: {\tt vertices}, {\tt elements}, {\tt boundaries}, and 
+  {\tt curves}:
 
-  \newpage
-  \noindent
-  Example: 
-
-  \begin{verbatim}
-# This is an XGEN cfg file to project 'xsquare'.
-# Number of abscissas on each edge of the square:
-2  
-  \end{verbatim}
-  Now each side of the square is halved. XGEN inserts one additional point into the domain 
-  that moves towards the middle. The resulting mesh has eight elements and the mesh
-  file is:
   \begin{verbatim}
 # XGEN mesh in Hermes2D format
-# Project: xsquare
+# Project: cfg/xlist_hole
 # Edges are positively oriented
 
 # Vertices:
-vertices = 
+vertices =
 {
   { 0, 0 },
-  { 0.5, 0 },
-  { 1, 0 },
-  { 1, 0.5 },
-  { 1, 1 },
-  { 0.5, 1 },
-  { 0, 1 },
-  { 0, 0.5 },
-  { 0.499998, 0.499998 }
+  { 0.3, 0 },
+  { 0.6, 0 },
+  .
+  .
+  .
+  { 0.228144, 2.8167 },
+  { 0.165974, 0.244247 },
+  { 0.247855, 0.761208 }
 }
 
 # Elements:
-# (three vertex indices and a '0' (dummy material marker))
 elements =
 {
-  { 7, 0, 8, 0 },
-  { 8, 0, 1, 0 },
-  { 8, 1, 3, 0 },
-  { 3, 1, 2, 0 },
-  { 8, 3, 5, 0 },
-  { 5, 3, 4, 0 },
-  { 8, 5, 7, 0 },
-  { 7, 5, 6, 0 }
+  { 40, 41, 63, 0 },
+  { 41, 42, 75, 0 },
+  { 42, 43, 68, 0 },
+  .
+  .
+  .
+  { 89, 59, 94, 0 },
+  { 68, 109, 42, 0 },
+  { 42, 109, 75, 0 }
 }
 
-# Boundary data:
-# (bdy_vrt_1 bdy_vrt_2 edge_index)
+# Boundary markers:
+# (bdy_vertex_1 bdy_vertex_2 edge_index)
 boundaries =
 {
-  { 0, 1, 3 },
-  { 1, 2, 3 },
-  { 2, 3, 2 },
-  { 3, 4, 2 },
-  { 4, 5, 4 },
-  { 5, 6, 4 },
-  { 6, 7, 1 },
-  { 7, 0, 1 }
+  { 0, 1, 1 },
+  { 1, 2, 1 },
+  { 2, 3, 1 },
+  .
+  .
+  .
+  { 53, 54, 5 },
+  { 54, 55, 5 },
+  { 55, 40, 5 }
+}
+
+# Circular arcs:
+# (bdy_vertex_1 bdy_vertex_2 central_angle)
+curves =
+{
+  { 40, 41, -22.5 },
+  { 41, 42, -22.5 },
+  { 42, 43, -22.5 },
+  .
+  .
+  .
+  { 53, 54, -22.5 },
+  { 54, 55, -22.5 },
+  { 55, 40, -22.5 }
 }
   \end{verbatim}
 
   \section{Saving and Loading Points}
 
-  Sometimes the user may need to conserve grid point coordinates for
-  further use. In ``menu'', the user can use the button ``save points''.
-  To load points, use buttons ``init'' and ``load''.
-  \indent
-  The output file only contains points coordinates, i.e. two
-  doubles per line. Reading of points finishes when end of file
-  or an error while reading. Points that are checked to be
-  out of the domain are ignored. This way, if the user prepares a 
-  special point file with ordered points, it may take less
-  time to the generator to get near the minimal potential.  
+  Grid points can be saved using the button ``Save points'' in "Menu".
+  To load points, use buttons ``Init'' and ``Load''.
+  The output file only contains points coordinates as two
+  numbers per line. While loading, points that are checked to be
+  out of the domain are ignored. 
 
   \section{XGEN Configuration File}
    
-  After calling XGEN, the generator tries to open file
-  .XgenConfig in the current directory. If it is succesful,
-  it tries to read as much information as possible in the
-  following format:
+  Upon execution, XGEN attempts to open the file
+  .XgenConfig in the current directory. This file 
+  can be provided by the user and it contains 
+  the following defaults:
 
   \begin{verbatim} 
 # Path to directory with point sets:
@@ -302,28 +396,29 @@ meshes/
 # Zoom ratio:
 0.95
   \end{verbatim}
-  Variables that are not read remain set to implicitly defined
-  values. Point and grid file paths say, where the point and grid 
-  files are to be stored, respectively. SubLoopsNumber is the number of
+  Variables that are not read from this file are set to some default values.
+  Here the points and mesh file paths specify where the points and mesh 
+  files are stored, respectively. SubLoopsNumber is the number of
   points to be moved before returning control to the Window Manager.
-  The next value is the size of the window when placed onto the screen.
-  The user may notice that its shape is determined according to the shape
+  The next value is the size of the window when placed on the screen.
+  The shape of the window is determined according to the shape
   of the triangulated domain by the generator itself. BoundaryRedrawInterval
-  is the number of points to be moved before the boundary will be
-  redrawn. TimestepConst is a number between 0 and 1 expressing the change of
-  the time-step after pressing ``timestep inc'' and ``timestep dec'' in ``menu''.
-  The same meaning has the last value of the file in the sense of
-  zooming the domain.
+  is the number of points to be moved before the boundary is
+  redrawn. TimestepConst is a number between 0 and 1 that defines the change of
+  the time-step after pressing ``Timestep inc'' and ``Timestep dec'' in ``Menu''.
+  The last variable ZoomRatio has a similar meaning in context of zooming.
 
   \section{Visualizing Meshes with Hermes2D}
 
   The easiest way to visualize an XGEN mesh is to copy the mesh file into 
-  the directory ".../hermes/hermes2d/tutorial/01-mesh" in the Hermes repository, 
-  comment-out local refinements
+  the directory ".../hermes/hermes2d/tutorial/01-mesh" in the Hermes repository
+  as "domain.mesh", comment out local refinements
   in the main.cpp file, build the example again typing "make" in its directory, and 
   run "mesh". Then click into the graphics window containing the mesh, and press 's'
   -- this will save a BMP image on the disk. An example for the above GAMM channel
   project is shown in Fig. \ref{fig:hermes}.
+
+\newpage
 
   \begin{figure}[!ht]
   \begin{center}
@@ -334,112 +429,20 @@ meshes/
   \label{fig:hermes}
   \end{figure}
 
-
-  \section{Creating User Applications} \label{vl_apl}
-
-  The class Xgen knows all algorithms that are
-  necessary to create meshes, but it is lacking a concrete geometry. 
-  In order to read in a geometry, the user has to redefine the virtual 
-  method
-
-  \begin{verbatim}
-    virtual void XgReadData(FILE *f) = 0;
-  \end{verbatim}
-
-  \noindent
-  In addition, the user can (but does not have to) also redefine the methods
-  \begin{verbatim}
-    virtual double XgCriterion(Point a, Point b, Point c);
-    virtual void XgUserOutput(FILE *f);
-  \end{verbatim}
-  In Section \ref{getting} we saw how to do this for the ``xsquare'' project.
-
-  \section{Redefining the method XgReadData()}
-
-  First let us look at a basic structure ``Point'' that is used by XGEN:
-  \begin{verbatim}
-  struct Point {
-  double x, y;
-
-  Point() {}
-  Point(double ix, double iy): x(ix), y(iy) {}
-  double abs() {return sqrt(x*x + y*y);}
-
-  Point &operator += (Point B) {x += B.x; y += B.y; return *this;}
-  Point &operator -= (Point B) {x -= B.x; y -= B.y; return *this;}
-  Point &operator *= (double k) {x *= k; y *= k; return *this;}
-  Point &operator /= (double k) {x /= k; y /= k; return *this;}
-  Point &operator *= (int k) {x *= k; y *= k; return *this;}
-  Point &operator /= (int k) {x /= k; y /= k; return *this;}
-  Point operator + (Point B) {return Point(x + B.x, y + B.y);}
-  Point operator - (Point B) {return Point(x - B.x, y - B.y);}
-  Point operator * (double k) {return Point(k*x, k*y);}
-  Point operator / (double k) {return Point(x/k, y/k);}
-  Point operator * (int k) {return Point(k*x, k*y);}
-  Point operator / (int k) {return Point(x/k, y/k);}
-  double operator * (Point B) {return x*B.x + y*B.y;}
-};
-  \end{verbatim}  
-  The method XgReadData() is given pointer to the descendant's configuration
-  file (e.g. to ``xsquare.cfg'') which has been open for binary reading. The pointer
-  is NULL if the file culd not be opened. User-defined XgReadData() must read from this
-  file all parameters characterizing the domain in order to fill the descendant's 
-  data. Shape of the domain is passed into the descendant by means of the following
-  overloaded method:
-  \begin{verbatim}
-    void XgAddEdge(int index, double x, double y);
-    void XgAddEdge(int index, Point P);
-    void XgAddEdge(int index, double x, double y, int lines);
-    void XgAddEdge(int index, Point P, int lines);
-  \end{verbatim}
-  This method adds one edge to the Xgen data structure representing the
-  boundary of the triangulated domain. The boundary must be positively
-  oriented. The value ``index'' means the user-defined kind of the
-  corresponding boundary part (see the output format in \ref{out_form}).
-  The coordinates ``x, y'' or the point ``P'' is the starting point of the edge.
-  The number ``lines'' means the number of boundary edges the edge will be
-  equidistantly divided into. The end point of the edge is determined either
-  by adding another edge (then it is its starting point) or by calling 
-  \begin{verbatim}
-    void XgNewComponent();
-  \end{verbatim}
-  which closes the loop. Last given loop is closed automatically. 
-
   \section{Additional examples}
 
-  The executable file ``xgen'' (see its source in src/xmain.cpp) contains
-  some more example descendants -- there are ``xcirc'', ``xhole'', ``xgamm'', 
-  ``xstep'' and ``xlist''. Run them as:
-  \begin{verbatim}
-    xmain xsquare cfg/xsquare.cfg &
-    xmain xhole cfg/xhole.cfg &
-    xmain xcirc cfg/xcirc.cfg &
-    xmain xhump cfg/xhump.cfg &
-    xmain xstep cfg/xstep.cfg &
-    xmain xlist cfg/xlist.cfg &
-  \end{verbatim}
-
-  \section{Redefinition of the method XgCriterion()}
-
-  This method is essential for the triangulation process. The algorithm solves
-  the following task: let $ab$ be an oriented edge, points $c_1, c_2, \ldots, c_k$ lie on the left
-  hand side of $ab$ (this can be written precisely). We want to choose a point $c_i$ from them
-  so that the triangle
-  $abc_i$ is ``the nicest one possible'' and none from the rest of points $c_j$, 
-  $ i \not= j$, $j = 1, 2, \ldots, k$ lies inside of $abc_i$. Having two different
-  triangles, by means of ``XgCriterion()'' we define, which one of them is nicer -- its XgCriterion
-  is smaller. Each defined XgCriterion() must satisfy the following implication:
-  XgCriterion(a, b, c) $<$ 
-  XgCriterion(a, b, d) then the point $d$ lies outside of the triangle $abc$ for all $c, d$ lying
-  on the left of $ab$.
-  The implicit definition of XgCriterion(a, b, c) is
+  The file src/main.cpp contains a few more sample descendants which 
+  can be tried via:
 
   \begin{verbatim}
-double Xgen::XgCriterion(Point a, Point b, Point c) {
-  return ((c-a)*(c-b))/((c-a).abs()*(c-b).abs());
-}
+    ./xgen xsquare cfg/xsquare.cfg &
+    ./xgen xhole cfg/xhole.cfg &
+    ./xgen xcirc cfg/xcirc.cfg &
+    ./xgen xstep cfg/xstep.cfg &
   \end{verbatim}
-%\hbox{} \hfill Pavel Solin, May 1995 (updated November 2010)
+
+
+  \hbox{} \hfill Pavel Solin, May 1995 (updated December 2010)
 
 
 \end{document}

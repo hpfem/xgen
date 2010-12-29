@@ -210,34 +210,34 @@ class xlist: public Xgen {
 };
 
 // Boundary edges have the following format:
-// <marker start_x, start_y, subdivision, alpha>
-// where alpha = 0 for straight edges and alpha != 0 for curved.
+// <marker start_x, start_y, subdivision, angle>
+// where angle = 0 for straight edges and angle != 0 for curved.
 // New component is introduced with '='.
 void xlist::XgReadData(FILE *f) {
   int marker, subdiv, end = 0;
   Point a, b, c;
-  double alpha;
+  double angle;
   char test[20];
 
   while(Get(f, &marker)) {
-    if(!Get(f, &a.x)) XgError("Couldn't read a point.");
-    if(!Get(f, &a.y)) XgError("Couldn't read a point.");
+    if(!Get(f, &a.x)) XgError("Couldn't read a starting point.");
+    if(!Get(f, &a.y)) XgError("Couldn't read a starting point.");
     if(!Get(f, &subdiv)) XgError("Couldn't read a subdivision number.");
-    if(!Get(f, &alpha)) XgError("Couldn't read a boundary segment's angle.");
+    if(!Get(f, &angle)) XgError("Couldn't read an angle.");
 
-    // closing the loop
+    // Closing a boundary loop.
     XgCreateNewBoundaryComponent();
 
-    XgAddBoundarySegment(marker, a.x, a.y, subdiv, alpha);
+    XgAddBoundarySegment(marker, a.x, a.y, subdiv, angle);
     c = a;
-    while(end = !Get(f, test), (end || test[0] == '=') ? 0:1) {
+    while(end = !Get(f, test), (end || test[0] == '=') ? false : true) {
       marker = atoi(test);
-      if(!Get(f, &b.x)) XgError("Couldn't read a point.");
-      if(!Get(f, &b.y)) XgError("Couldn't read a point.");
+      if(!Get(f, &b.x)) XgError("Couldn't read a starting point.");
+      if(!Get(f, &b.y)) XgError("Couldn't read a starting point.");
       if(!Get(f, &subdiv)) XgError("Couldn't read a subdivision number.");
-      if(!Get(f, &alpha)) XgError("Couldn't read a boundary segment's angle.");
-      XgAddBoundarySegment(marker, b.x, b.y, subdiv, alpha); 
-      a=b;
+      if(!Get(f, &angle)) XgError("Couldn't read an angle.");
+      XgAddBoundarySegment(marker, b.x, b.y, subdiv, angle); 
+      a = b;
     } 
   }
 }
