@@ -60,7 +60,7 @@ A simple generator of uniform unstructured triangular meshes.
  \noindent
 {\footnotesize
 \begin{verbatim}
-  ./xgen xgamm cfg/xgamm.cfg.
+  ./xgen xgamm cfg/xgamm.cfg
 \end{verbatim}
 } 
 \noindent
@@ -127,9 +127,9 @@ buttons. The overlay pattern is illustrated in Fig. \ref{fig:overlay}.
   \end{figure}
 \noindent 
   In interactive mode, the user can add and remove points using the left and middle  
-  (or the right button for the two-button mouse) mouse click,
-  respectively. Mesh can be generated at any time by pressing the Mesh button.
-  The Menu button launches a menu with several functions
+  mouse buttons (left and right on a two-button mouse). 
+  Mesh can be generated at any time by pressing the "Mesh" button.
+  The "Menu" button launches a menu with several self-explanatory functions
   (Fig. \ref{fig:menu}). 
 
   \begin{figure}[!ht]
@@ -161,8 +161,8 @@ the file "out.mesh".
   The simplest way to enter a geometry is to prepare a text file 
   that defines the boundary as a positively oriented list of 
   straight lines and/or circular segments. Each segment is 
-  entered using 5 numbers: the boundary marker, the starting 
-  point, subdivision, and angle. If the angle is zero, the segment
+  entered using 5 numbers: the boundary marker, starting 
+  point coordinates, subdivision, and angle. If the angle is zero, the segment
   is a straight line. Before entering a hole, one needs close the
   current boundary component using the '=' symbol. The following 
   file describes a square $(0, 3)^2$ with a circular hole of
@@ -213,9 +213,9 @@ The resulting mesh is shown in Fig. \ref{fig:7}.
   In fact, this was just one specific application (called "xlist")
   that consists of less than 50 lines of code (incl. comments). 
 
-  To create a custom project such as "xlixt", one needs to define 
+  To create a custom project such as "xlist", one needs to define 
   a descendant of a basic class Xgen. Let us paste the 
-  code of the class "xlixt" here for illustration: 
+  code of the class "xlist" here for illustration: 
 
 \begin{verbatim}
 /*
@@ -333,7 +333,13 @@ elements =
   { 68, 109, 42, 0 },
   { 42, 109, 75, 0 }
 }
+\end{verbatim}
+The first three indices refer to the vertex array.
+The last number on each line is a material marker. XGEN currently 
+does not allow for different material markers, and thus 
+a default value "0" is used for all triangles.
 
+\begin{verbatim}
 # Boundary markers:
 # (bdy_vertex_1 bdy_vertex_2 edge_index)
 boundaries =
@@ -348,7 +354,11 @@ boundaries =
   { 54, 55, 5 },
   { 55, 40, 5 }
 }
+\end{verbatim}
+The first two indices refer to the vertex array, and the 
+last number on each line is the material marker. 
 
+\begin{verbatim}
 # Circular arcs:
 # (bdy_vertex_1 bdy_vertex_2 central_angle)
 curves =
@@ -364,6 +374,10 @@ curves =
   { 55, 40, -22.5 }
 }
   \end{verbatim}
+The "curves" section is empty if the boundary is formed by 
+straight lines only. For each curved element edge, the 
+first two numbers are indices refering to the vertex array, and the 
+last one is a central angle of the circular arc.
 
   \section{Saving and Loading Points}
 
@@ -417,8 +431,6 @@ meshes/
   run "mesh". Then click into the graphics window containing the mesh, and press 's'
   -- this will save a BMP image on the disk. An example for the above GAMM channel
   project is shown in Fig. \ref{fig:hermes}.
-
-\newpage
 
   \begin{figure}[!ht]
   \begin{center}
