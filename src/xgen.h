@@ -1,6 +1,10 @@
 # include <stdlib.h>
 # include <stdio.h>
 # include <math.h>
+#include <ios>      // Required for streamsize
+#include <iostream>
+#include <istream>
+#include <limits>   // Required for numeric_limits
 
 struct Point {
   double x, y;
@@ -96,12 +100,13 @@ struct BoundaryPairsList {
   void Init() {Ptr = First;}
   bool GetNext(int &a, int &b, double &alpha);
   bool Contains(int C);
-  void Add(int a, int b, double alp);
+  void Append(int a, int b, double alp);
   bool Delete(int a, int b, double &alp);
   void DeleteLast();
   void DeleteAll();
   void GetLast(int &a, int &b, double &alp) {a = Last->A; b = Last->B; alp = Last->alpha;}
-  void Change(BoundaryPair* pair, int a, int b);
+  void Change(int a, int b, int c, int d, double angle);
+  void InsertAfter(int a, int b, int c, int d, double angle);
   bool IsEmpty() {return (First == NULL) ? true : false;}
 };
 
@@ -136,7 +141,7 @@ struct BoundaryEdgeList {
   BoundaryEdgeList() {First = Last = Ptr = NULL;}
   void Init() {Ptr = First;}
   bool GetNext(BoundaryEdge &I);
-  void Add(int a, int b, int component_index, int marker, double alpha);
+  void Append(int a, int b, int component_index, int marker, double alpha);
   void DeleteLast();
   void DeleteAll();
 };
@@ -161,7 +166,7 @@ struct ElemList {
   ElemList() {First = Last = Ptr = NULL;}
   void Init() {Ptr = First;}
   bool GetNext(int &a, int &b, int &c, double &ab, double &ac, double &bc);
-  void Add(int a, int b, int c, double ab, double ac, double bc);
+  void Append(int a, int b, int c, double ab, double ac, double bc);
   void DeleteAll();
   ~ElemList();
 };
@@ -178,8 +183,8 @@ struct PointList {
   void Init() {Ptr = First;}
   bool GetNext(Point &T);
   bool GetNext(int i, double &pos_x, double &pos_y);
-  void Add(Point P);
-  void Add(double pos_x, double pos_y);
+  void Append(Point P);
+  void Append(double pos_x, double pos_y);
   Point DeleteAll();
 };  
 
@@ -309,7 +314,7 @@ class Xgen {
   Point GetImpuls(int i);
   Point GiveImpuls(int i, int j);
   bool IsInside(Point &P);
-  bool BoundaryIntersectionCheck(Point a, Point b);
+  bool BoundaryIntersectionCheck(int a, int b);
   bool EdgesIntersect(Point a, Point b, Point c, Point d);
   bool IsLeft(Point A, Point B, Point C);  // checks whether C is on the left of AB
   bool IsRight(Point A, Point B, Point C); // checks whether C is on the right of AB

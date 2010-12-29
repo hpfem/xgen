@@ -36,9 +36,34 @@ void XgError(const char *what) {
  **   struct BoundaryPairsList:
  **/
 
-void BoundaryPairsList::Change(BoundaryPair* pair, int a, int b) 
+// changes a pair (a, b) to (c, d) 
+void BoundaryPairsList::Change(int a, int b, int c, int d, double angle) 
 {
-  pair->A = a; pair->B = b; pair->alpha = 0;
+  BoundaryPair *p = First;  
+  while(p != NULL) {
+    if((p->A == a) && (p->B == b)) {
+      p->A = c;
+      p->B = d;
+      p->alpha = angle;
+      return;
+    }
+    p = p->next;
+  }
+}
+
+void BoundaryPairsList::InsertAfter(int a, int b, int c, int d, double angle) 
+{
+  BoundaryPair *p = First;  
+  while(p != NULL) {
+    if((p->A == a) && (p->B == b)) {
+      BoundaryPair* p_new = new BoundaryPair(c, d, angle);
+      p_new->next = p->next;
+      p->next = p_new;
+      return;
+    }
+    p = p->next;
+  }
+  XgError("internal in BoundaryPairsList::InsertAfter().");
 }
 
 bool BoundaryPairsList::GetNext(int &a, int &b, double &alp) 
@@ -54,26 +79,26 @@ bool BoundaryPairsList::GetNext(int &a, int &b, double &alp)
 }
 
 void BoundaryPairsList::DeleteAll() {
-  Ptr = First;
+  BoundaryPair *ptr = First;
   BoundaryPair *p;
-  while(Ptr != NULL) {
-    p = Ptr;
-    Ptr = Ptr -> next;
+  while(ptr != NULL) {
+    p = ptr;
+    ptr = ptr -> next;
     delete p;
   }
-  First = Last = NULL;
+  First = Last = Ptr = NULL;
 }
 
 bool BoundaryPairsList::Contains(int C) {
-  BoundaryPair *P = First;
-  while(P != NULL) {
-    if((P->A == C) || (P->B == C)) return true;
-    P = P->next;
+  BoundaryPair *p = First;
+  while(p != NULL) {
+    if((p->A == C) || (p->B == C)) return true;
+    p = p->next;
   }
   return false;
 }
 
-void BoundaryPairsList::Add(int a, int b, double alp) 
+void BoundaryPairsList::Append(int a, int b, double alp) 
 {
   if (Last == NULL) {
     First = Last = new BoundaryPair(a, b, alp);
@@ -82,7 +107,6 @@ void BoundaryPairsList::Add(int a, int b, double alp)
     Last->next = new BoundaryPair(a, b, alp);
     Last = Last->next;
   }
-  //printf("Added boundary pair (%d %d), angle %g\n", a, b, alp);
 }
 
 void BoundaryPairsList::DeleteLast() {
@@ -107,28 +131,27 @@ void BoundaryPairsList::DeleteLast() {
 
 bool BoundaryPairsList::Delete(int a, int b, double &alp) 
 {
-  BoundaryPair *p = First, *l = NULL;
+  BoundaryPair *p = First, *p_last = First;
+  // is the list empty?
+  if (First == NULL) return false;
+  // is it the first element?
+  if (p->A == a && p->B == b) {
+    alp = p->alpha;
+    First = p->next;
+    delete p;
+    return true;
+  }
+  p = p->next;
+  // looking through the rest of the list
   while (p != NULL) {
-    if ((p->A == a && p->B == b) || (p->A == b && p->B == a)) {
+    if (p->A == a && p->B == b) {
       alp = p->alpha;
-      if (l == NULL) {
-        First = p->next;
-	if (p->next == NULL) Last = NULL;
-      }
-      else {
-	l->next = p->next;
-	if (p->next == NULL) {
-	  Last = l;
-	  Last->next = NULL;
-        }
-      }
+      p_last->next = p->next;
       delete p;
       return true;
     }
-    else {
-      l = p;
-      p = p->next;
-    }
+    p_last = p;
+    p = p->next;
   }
   return false;
 }
@@ -149,14 +172,14 @@ bool BoundaryLinesList::GetNext(Point &a, Point &b)
 }
 
 void BoundaryLinesList::DeleteAll() {
-  Ptr = First;
+  BoundaryLine* ptr = First;
   BoundaryLine *bl;
-  while(Ptr != NULL) {
-    bl = Ptr;
-    Ptr = Ptr -> next;
+  while(ptr != NULL) {
+    bl = ptr;
+    ptr = ptr -> next;
     delete bl;
   }
-  First = Last = NULL;
+  First = Last = Ptr = NULL;
 }
 
 void BoundaryLinesList::AddStraightLine(Point a, Point b) 
@@ -277,7 +300,7 @@ bool BoundaryEdgeList::GetNext(BoundaryEdge &BE) {
   else return false;
 }
 
-void BoundaryEdgeList::Add(int a, int b, int component_index, int marker, double alpha) 
+void BoundaryEdgeList::Append(int a, int b, int component_index, int marker, double alpha) 
 {
   if (Last == NULL) {
     First = Last = new BoundaryEdge(a, b, component_index, marker, alpha);
@@ -309,20 +332,21 @@ void BoundaryEdgeList::DeleteLast() {
 }
 
 void BoundaryEdgeList::DeleteAll() {
-  BoundaryEdge *p = Ptr = First;
+  BoundaryEdge *p, *ptr;
+  p = ptr = First;
   while(p != NULL) {
-    Ptr = Ptr->next;
+    ptr = ptr->next;
     delete p;
-    p = Ptr;
+    p = ptr;
   }
-  Last = First = NULL;
+  Last = First = Ptr = NULL;
 }
 
 /**
  **    struct ElemList:
  **/
 
-void ElemList::Add(int a, int b, int c, 
+void ElemList::Append(int a, int b, int c, 
                    double ab_angle, double ac_angle, double bc_angle) {
   if (Last == NULL) {
     First = Last = Ptr = new ElemBox(a, b, c, ab_angle, ac_angle, bc_angle);
@@ -330,7 +354,7 @@ void ElemList::Add(int a, int b, int c,
   else {
     Last->next = new ElemBox(a, b, c, ab_angle, ac_angle, bc_angle);
     Last = Last->next;
-    if(Last == NULL) XgError("ElemList::Add(): Not enough memory."); 
+    if(Last == NULL) XgError("ElemList::Append(): Not enough memory."); 
   }
 }
 
@@ -386,11 +410,11 @@ bool PointList::GetNext(Point &T) {
   else return false;
 }
 
-void PointList::Add(Point P) {
-  Add(P.x, P.y);
+void PointList::Append(Point P) {
+  Append(P.x, P.y);
 }
 
-void PointList::Add(double pos_x, double pos_y) {
+void PointList::Append(double pos_x, double pos_y) {
   if (Last == NULL) {
     First = Last = new PointBox(pos_x, pos_y);
   }
@@ -491,13 +515,13 @@ BoundaryPairsList* BoundaryType::CreateBoundaryPairsList() {
       int first_point_of_segment = count;
       for(int i=0; i<subdiv; i++) {
         //printf("Adding boundary pair %d %d\n", count, count + 1);
-        bpl->Add(count, count + 1, alpha / subdiv);
+        bpl->Append(count, count + 1, alpha / subdiv);
         count++;
       }
       segment = segment -> next;
     }
     bpl->DeleteLast();
-    bpl->Add(count-1, first_point_of_component, alpha / subdiv);
+    bpl->Append(count-1, first_point_of_component, alpha / subdiv);
     component = component -> next;
   }
   return bpl;
@@ -554,14 +578,14 @@ PointList* BoundaryType::CreateBoundaryPointList() {
         for(int i=0; i<subdiv; i++) {
           Point PP = first_point + P*i;
           //printf("Adding boundary point (%g %g)... on straight line\n", PP.x, PP.y);
-          bpl->Add(PP);
+          bpl->Append(PP);
         }
       }
       else {
         for(int i=0; i<subdiv; i++) {
           Calculate_point_on_arc(first_point, next_point, angle, i * angle / subdiv, P); 
           //printf("Adding boundary point (%g %g)... on circular arc\n", P.x, P.y);
-          bpl->Add(P);
+          bpl->Append(P);
         }
       }
       first_point = next_point;
@@ -574,14 +598,14 @@ PointList* BoundaryType::CreateBoundaryPointList() {
       for(int i=0; i<subdiv; i++) {
         Point PP = first_point + P*i;
         //printf("Adding boundary point (%g %g)... on straight line\n", PP.x, PP.y);
-        bpl->Add(PP);
+        bpl->Append(PP);
       }
     }
     else {
       for(int i=0; i<subdiv; i++) {
         Calculate_point_on_arc(first_point, next_point, angle, i * angle / subdiv, P); 
         //printf("Adding boundary point (%g %g)... on circular arc\n", P.x, P.y);
-        bpl->Add(P);
+        bpl->Append(P);
       }
     }
     Bdy_component_pointer = Bdy_component_pointer -> next;
@@ -618,7 +642,7 @@ BoundaryEdgeList* BoundaryType::CreateBoundaryEdgeList() {
       subdiv = Segment_pointer -> subdiv;
       // Adding elementary boundary edges.
       for(int i=0; i<subdiv; i++) {
-        bel->Add(
+        bel->Append(
             Count, Count + 1, 
             component_index,
             Segment_pointer -> marker,
@@ -632,7 +656,7 @@ BoundaryEdgeList* BoundaryType::CreateBoundaryEdgeList() {
       Segment_pointer = Segment_pointer -> next;
     }
     bel->DeleteLast();
-    bel->Add(
+    bel->Append(
         Count - 1, First_point_of_component,
         component_index,
         last_marker,
@@ -952,6 +976,15 @@ void Xgen::XgRemoveBoundaryPoints()
   if(was_deleted > 0) printf("Deleted %d points, %d grid points, %d interior.\n", was_deleted, Npoin, InteriorPtsNum);
 }
 
+void PrintBPL(BoundaryPairsList* bpl) {
+  printf("Pairs:\n");
+  bpl->Init();
+  int A, B;
+  double alpha;
+  while(bpl->GetNext(A, B, alpha)) printf("(%d, %d, %g)\n", A, B, alpha);
+  printf("\n");
+}
+
 bool Xgen::XgCreateNextTriangle(int &A, int &B, int &C, 
                                 double &AB_angle, double &CA_angle, double &BC_angle, bool &finished) 
 {
@@ -961,48 +994,93 @@ bool Xgen::XgCreateNextTriangle(int &A, int &B, int &C,
   // are too close to the boundary.
   if(this->Removal_of_boundary_points_needed) XgRemoveBoundaryPoints();
 
-  // take last vertex pair (edge) from the list of boundary pairs
-  BPL->GetLast(A, B, AB_angle);
-  //BPL->Init();
-  //BPL->GetNext(A, B, AB_angle);
-
-  // Finds the nearest point C on the left of AB that produces an 
+  // Find the nearest point C on the left of AB that produces an 
   // admissible triangle ABC. Admissible means that edges AC and BC
   // do not intersect the boundary, that ABC does not contain any 
   // boundary point, etc. 
-  if(!FindAdmissibleThirdVertex(A, B, C)) {
-    printf("FindAdmissibleThirdVertex() failed.\n");
-    return false;
+
+  // Look whether there are any curved boundary 
+  // edges because they need to be done first.
+  BPL->Init();
+  bool curved_edge_found = false;
+  while(BPL->GetNext(A, B, AB_angle)) {
+    if (fabs(AB_angle) > 1e-3) {
+      curved_edge_found = true;
+      if (!FindAdmissibleThirdVertex(A, B, C)) {
+        printf("Triangle could not be created for curved edge (%d, %d), angle %g\n", A, B, AB_angle);
+        exit(0);
+      }
+      else break;
+    }
+  }
+    
+  // If there were no curved edges, we browse the list 
+  // starting at the beginning.
+  if (!curved_edge_found) {
+    BPL->Init();
+    do {
+      // Gets the next boundary pair in list.
+      if(!BPL->GetNext(A, B, AB_angle)) {
+        XgError("Triangularion failed.\n");
+        return false;
+      }
+    }
+    while (!FindAdmissibleThirdVertex(A, B, C));
   }
 
-  if (BPL->Delete(C, A, CA_angle)) {
-    //printf("Deleted edge (%d %d), angle %g\n", C, A, CA_angle);
-    if (BPL->Delete(B, C, BC_angle)) BPL->DeleteLast();
+  // At this time, an admissible vertex was found.
+  //printf("Found admissible triangle (%d %d %d)\n", A, B, C);
+  //sleep(1);
+
+
+  // If CA is a boundary edge, it needs to be deleted from boundary
+  if (BPL->Delete(C, A, CA_angle)) {  
+    //printf("Pair (%d %d) deleted, angle %g\n", C, A, CA_angle);
+    //PrintBPL(this->BPL);
+    // If also BC is a boundary edge, then it needs to be deleted from boundary
+    // along with AB.
+    if (BPL->Delete(B, C, BC_angle)) {
+      //printf("Pair (%d %d) deleted, angle %g\n", B, C, BC_angle);
+      //PrintBPL(this->BPL);
+      BPL->Delete(A, B, AB_angle);
+      //printf("Pair (%d %d) deleted, angle %g\n", A, B, AB_angle);
+      //PrintBPL(this->BPL);
+    }
     else {
-      BPL->Change(BPL->Last, C, B);
+      BPL->Change(A, B, C, B, BC_angle);
       BC_angle = 0;
-      //printf("Last edge changed to (%d %d), angle %g\n", C, B, BC_angle);
+      //printf("Pair (%d %d) changed to (%d %d), angle %g\n", A, B, C, B, BC_angle);
     }
   }
-  else {
-    BPL->Change(BPL->Last, A, C);
+  else {  // CA is not a boundary edge
+    BPL->Change(A, B, A, C, CA_angle);  // Change pair AB to AC
+    //printf("Pair (%d %d) changed to (%d %d), angle %g\n", A, B, A, C, BC_angle);
     CA_angle = 0;
-    //printf("Last edge changed to (%d %d), angle %g\n", A, C, CA_angle);
-    if (!BPL->Delete(B, C, BC_angle)) {
+    // If BC is a boundary edge, delete it from the boundary.
+    // Otherwise insert CB after AC.
+    if (BPL->Delete(B, C, BC_angle)) {
+      //printf("Pair (%d %d) deleted, angle %g\n", B, C, BC_angle);
+    }
+    else {
       BC_angle = 0;
-      BPL->Add(C, B, BC_angle);  // zero angle, this is not an original boundary edge
-      //printf("Added edge (%d %d), angle %g\n", C, B, BC_angle);
+      BPL->InsertAfter(A, C, C, B, BC_angle);
+      //printf("Pair (%d %d) inserted after (%d %d), angle %g\n", C, B, A, C, BC_angle);
     }
   }
 
-  if(BPL->IsEmpty()) finished = true;
+  if(BPL->IsEmpty()) {
+    //printf("Pairs list is empty.\n");
+    finished = true;
+    printf("Number of elements: %d\n", this->Nelem);
+  }
 
   // Elements are positively oriented.
-  EL -> Add(A, B, C, AB_angle, CA_angle, BC_angle);
+  EL -> Append(A, B, C, AB_angle, CA_angle, BC_angle);
 
   Nelem++;
   
   //printf("New element (%d %d %d) angles (%g %g %g)\n", A, B, C, AB_angle, CA_angle, BC_angle);
+  //PrintBPL(this->BPL);
 
   return true;
 }
@@ -1499,15 +1577,25 @@ bool Xgen::EdgesIntersect(Point a, Point b, Point c, Point d)
 }
 
 // Checks whether edge (a, b) intersects with (possibly curvilinear) boundary.
-bool Xgen::BoundaryIntersectionCheck(Point a, Point b) 
+bool Xgen::BoundaryIntersectionCheck(int a, int b) 
 {
-  Point c, d;
+  Point A, B;
+  A = Points[a];
+  B = Points[b];
+  Point C, D;
+  //first check the (curved) boundary of the domain itself
   BLL -> Init();
-  while(BLL->GetNext(c, d)) {
-    if(EdgesIntersect(a, b, c, d)) {
-      //printf("Intersecting edges:\n");
-      //printf("AB = (%g %g) (%g %g)\n", a.x, a.y, b.x, b.y);
-      //printf("BdyEdge = (%g %g) (%g %g)\n", c.x, c.y, d.x, d.y);
+  while(BLL->GetNext(C, D)) {
+    if(EdgesIntersect(A, B, C, D)) {
+      return true;
+    }
+  }
+  // Next check the polygon BPL (boundary pairs list).
+  BPL -> Init();
+  double angle;
+  int c, d;
+  while(BPL->GetNext(c, d, angle)) {
+    if(EdgesIntersect(A, B, Points[c], Points[d])) {
       return true;
     }
   }
@@ -1558,24 +1646,25 @@ bool Xgen::FindAdmissibleThirdVertex(int A, int B, int &wanted)
         //printf("Probing point %d, criterion %g (Min = %g)\n", C, m, Min);
         if(m < Min) {
           if(IsInside(Points[C]) || BPL->Contains(C)) {
+            // Check intersection with boundary
             //printf("Checking intersection of triangle (%d %d %d) with boundary:\n", A, B, C);
             bool bdy_intersect = false;
             //printf("Checking intersection of edge (%d %d) with boundary:\n", A, C);
-            if (!XgIsBoundaryEdge(A, C)) {
-              if (BoundaryIntersectionCheck(Points[A], Points[C])) {
+            if (!XgIsBoundaryEdge(A, C) && !XgIsBoundaryEdge(C, A)) {
+              if (BoundaryIntersectionCheck(A, C)) {
                 bdy_intersect = true;
                 //printf("Edge (%d %d) intersects with boundary.\n", A, C);
               }
             }
-            if (!bdy_intersect && !XgIsBoundaryEdge(B, C)) {
+            if (!bdy_intersect && !XgIsBoundaryEdge(B, C) && !XgIsBoundaryEdge(C, B)) {
               //printf("Checking intersection of edge (%d %d) with boundary:\n", B, C);
-              if (BoundaryIntersectionCheck(Points[B], Points[C])) {
+              if (BoundaryIntersectionCheck(B, C)) {
                 bdy_intersect = true;
                 //printf("Edge (%d %d) intersects with boundary.\n", B, C);
               }
             }
 
-            // if BdyComponentsNum > 1 we also need to check that ABC does not contain any 
+            // If BdyComponentsNum > 1 we also need to check that ABC does not contain any 
             // boundary vertex (to avoid an entire closed boundary loop inside ABC)
             bool contains_bdy_vertex = false;
             if (this->BdyComponentsNum > 1) {
@@ -1591,7 +1680,8 @@ bool Xgen::FindAdmissibleThirdVertex(int A, int B, int &wanted)
                     IsLeft(Points[C], Points[A], P)) {
                   contains_bdy_vertex = true;
                   //printf("A = (%g %g), B = (%g %g), C = (%g %g), P = (%g %g)", 
-                  //  Points[A].x, Points[A].y, Points[B].x, Points[B].y, Points[C].x, Points[C].y, P.x, P.y);
+                  //  Points[A].x, Points[A].y, Points[B].x, Points[B].y, 
+                  //  Points[C].x, Points[C].y, P.x, P.y);
                   //printf("Triangle %d %d %d contains a boundary vertex.\n", A, B, C);
                   break;
                 }
