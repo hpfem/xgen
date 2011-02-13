@@ -27,13 +27,15 @@ class xsquare: public Xgen {
 };
 
 void xsquare::XgReadData(FILE *f) {
+  double A; 
+  if(!Get(f, &A)) XgError("Couldn't read A for a (-A, A) x (-A, A) square domain.");
   int N; 
   if(!Get(f, &N)) XgError("Couldn't read N.");
   double alpha = 0;
-  XgAddBoundarySegment(3, 0, 0, N, alpha);
-  XgAddBoundarySegment(2, 1, 0, N, alpha);
-  XgAddBoundarySegment(4, 1, 1, N, alpha);
-  XgAddBoundarySegment(1, 0, 1, N, alpha);
+  XgAddBoundarySegment(3, -A, -A, N, alpha);
+  XgAddBoundarySegment(2, A, -A, N, alpha);
+  XgAddBoundarySegment(4, A, A, N, alpha);
+  XgAddBoundarySegment(1, -A, A, N, alpha);
 }
 
 /*
